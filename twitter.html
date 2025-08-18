@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>Vtube タイムライン</title>
+  <title>Vtube｜タイムライン</title>
   <script src="https://unpkg.com/@supabase/supabase-js"></script>
   <style>
     body { font-family: sans-serif; background: #f5f5f5; padding: 20px; }
@@ -13,22 +13,22 @@
   </style>
 </head>
 <body>
-  <h1>📢 Vtube タイムライン</h1>
+  <h1>タイムライン</h1>
   <div id="posts"></div>
 
   <script>
-    const SUPABASE_URL = "https://yvxynwjfngvqwjjsqdma.supabase.co"; // ← 自分のURL
+    const SUPABASE_URL = "https://yvxynwjfngvqwjjsqdma.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU";
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     async function loadPosts() {
       const { data, error } = await supabase
         .from("posts")
-        .select("id, content, image_url, created_at, profiles(username)")
+        .select("*")
         .order("created_at", { ascending: false });
 
       if (error) {
-        console.error("エラー:", error);
+        alert("エラー: " + JSON.stringify(error));
         return;
       }
 
@@ -40,8 +40,8 @@
         div.className = "post";
 
         div.innerHTML = `
-          <div class="user">${post.profiles?.username || "名無し"}</div>
-          <div>${post.content}</div>
+          <div class="user">${post.user_id || "名無し"}</div>
+          <div>${post.content || ""}</div>
           ${post.image_url ? `<img src="${post.image_url}">` : ""}
           <div class="time">${new Date(post.created_at).toLocaleString()}</div>
         `;
