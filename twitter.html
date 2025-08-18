@@ -1,109 +1,106 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <title>Vtube｜タイムライン</title>
-  <script src="https://unpkg.com/@supabase/supabase-js"></script>
+  <meta charset="UTF-8" />
+  <title>VTube｜タイムライン</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-    body { font-family: sans-serif; background: #f5f5f5; padding: 20px; }
-    h1 { text-align: center; }
-    #postForm { background: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);}
-    #postForm textarea { width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ddd; resize: vertical; }
-    #postForm input[type="file"] { margin-top: 10px; }
-    #postForm button { margin-top: 10px; padding: 10px 20px; border: none; border-radius: 5px; background: #1da1f2; color: white; font-weight: bold; cursor: pointer; }
-    .post { background: white; border-radius: 10px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);}
-    .post img { max-width: 100%; border-radius: 10px; margin-top: 10px; }
-    .user { font-weight: bold; margin-bottom: 5px; }
-    .time { color: #666; font-size: 12px; }
+    body { font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 1em; }
+    .post-form { margin-bottom: 2em; }
+    .post { border: 1px solid #ccc; padding: 1em; margin-bottom: 1em; }
   </style>
 </head>
 <body>
-  <h1>Vtube</h1>
+  <h1>タイムライン</h1>
 
   <!-- 投稿フォーム -->
-  <div id="postForm">
-    <textarea id="content" rows="3" placeholder="いまどうしてる？"></textarea><br>
+  <div class="post-form">
+    <textarea id="content" placeholder="いまどうしてる？" rows="3" style="width:100%;"></textarea><br>
     <input type="file" id="image"><br>
-    <button onclick="createPost()">投稿する</button>
+    <button id="submit">投稿</button>
   </div>
 
   <!-- タイムライン -->
-  <div id="posts"></div>
+  <div id="timeline"></div>
 
   <script>
     const SUPABASE_URL = "https://yvxynwjfngvqwjjsqdma.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU";
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    const BUCKET = "posts"; // Supabase で作ったバケット名
-
-    // 投稿作成
-    async function createPost() {
+    // 投稿処理
+    document.getElementById("submit").addEventListener("click", async () => {
       const content = document.getElementById("content").value;
-      const fileInput = document.getElementById("image");
-      let image_url = null;
+      const file = document.getElementById("image").files[0];
 
-      // 画像アップロード
-      if (fileInput.files.length > 0) {
-        const file = fileInput.files[0];
-        const fileName = `${Date.now()}_${file.name}`;
-        const { error: uploadError } = await supabase.storage.from(BUCKET).upload(fileName, file);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert("ログインしてください！");
+        return;
+      }
+
+      let imageUrl = null;
+      if (file) {
+        const fileName = `${user.id}_${Date.now()}_${file.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from("images")
+          .upload(fileName, file);
 
         if (uploadError) {
           alert("画像アップロード失敗: " + uploadError.message);
           return;
         }
-
-        const { data } = supabase.storage.from(BUCKET).getPublicUrl(fileName);
-        image_url = data.publicUrl;
+        const { data: publicUrlData } = supabase.storage.from("images").getPublicUrl(fileName);
+        imageUrl = publicUrlData.publicUrl;
       }
 
-      // 投稿保存
-      const { error } = await supabase.from("posts").insert([
-        { content, image_url }
-      ]);
+      const { error: insertError } = await supabase
+        .from("posts")
+        .insert([
+          {
+            content: content,
+            image_url: imageUrl,
+            user_id: user.id  // 🔥 これが大事！
+          }
+        ]);
 
-      if (error) {
-        alert("投稿失敗: " + error.message);
+      if (insertError) {
+        alert("投稿失敗: " + insertError.message);
       } else {
         document.getElementById("content").value = "";
-        fileInput.value = "";
-        loadPosts(); // 再読み込み
+        document.getElementById("image").value = "";
+        loadTimeline();
       }
-    }
+    });
 
-    // タイムライン読み込み
-    async function loadPosts() {
+    // タイムライン取得
+    async function loadTimeline() {
       const { data, error } = await supabase
         .from("posts")
-        .select("*")
+        .select("id, content, image_url, created_at, user_id")
         .order("created_at", { ascending: false });
 
       if (error) {
-        alert("読み込みエラー: " + error.message);
+        document.getElementById("timeline").innerHTML = "読み込みエラー: " + error.message;
         return;
       }
 
-      const container = document.getElementById("posts");
-      container.innerHTML = "";
-
+      const timeline = document.getElementById("timeline");
+      timeline.innerHTML = "";
       data.forEach(post => {
         const div = document.createElement("div");
         div.className = "post";
-
         div.innerHTML = `
-          <div class="user">${post.user_id || "名無し"}</div>
-          <div>${post.content || ""}</div>
-          ${post.image_url ? `<img src="${post.image_url}">` : ""}
-          <div class="time">${new Date(post.created_at).toLocaleString()}</div>
+          <p>${post.content}</p>
+          ${post.image_url ? `<img src="${post.image_url}" style="max-width:100%;">` : ""}
+          <small>${new Date(post.created_at).toLocaleString()}</small>
         `;
-
-        container.appendChild(div);
+        timeline.appendChild(div);
       });
     }
 
-    // 初期ロード
-    loadPosts();
+    // 初回ロード
+    loadTimeline();
   </script>
 </body>
 </html>
