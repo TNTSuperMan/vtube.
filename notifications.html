@@ -12,7 +12,7 @@
   <script>
     const supabaseUrl = "https://yvxynwjfngvqwjjsqdma.supabase.co";
     const supabaseKey = "YOUR_KEY_HERE"; // ←いずみのキー貼ってね
-    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+    const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
     let currentUser = null;
 
     async function checkLogin() {
