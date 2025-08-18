@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>VTube ホーム</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f9f9f9;
+    }
+    header {
+      background: #0080ff;
+      color: white;
+      padding: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    nav a {
+      color: white;
+      margin: 0 10px;
+      text-decoration: none;
+    }
+    .container {
+      padding: 20px;
+    }
+    button {
+      background: #ff4d4d;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>🎬 VTube</div>
+    <nav>
+      <a href="home.html">ホーム</a>
+      <a href="twitter.html">タイムライン</a>
+      <a href="youtube.html">動画</a>
+      <button id="logout">ログアウト</button>
+    </nav>
+  </header>
+
+  <div class="container">
+    <h2 id="welcome">ようこそ！</h2>
+  </div>
+
+  <script>
+    const supabase = supabase.createClient(
+      "https://yvxynwjfngvqwjjsqdma.supabase.co",
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU"
+    );
+
+    // ユーザー情報を確認
+    async function checkUser() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        window.location.href = "login.html"; // 未ログインならログインページへ
+      } else {
+        document.getElementById("welcome").innerText = `ようこそ ${user.email} さん！`;
+      }
+    }
+    checkUser();
+
+    // ログアウト処理
+    document.getElementById("logout").addEventListener("click", async () => {
+      await supabase.auth.signOut();
+      window.location.href = "login.html";
+    });
+  </script>
+</body>
+</html>
