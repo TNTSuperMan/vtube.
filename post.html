@@ -2,71 +2,105 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>VTube 投稿</title>
+  <title>VTube - タイムライン</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 1em; }
+    .post-form { margin-bottom: 2em; }
+    .post { border: 1px solid #ccc; padding: 1em; margin-bottom: 1em; }
+  </style>
 </head>
 <body>
-  <h1>新しい投稿</h1>
-  <form id="post-form">
-    <textarea id="content" placeholder="いまどうしてる？" required></textarea><br>
+  <h1>VTube タイムライン</h1>
+
+  <!-- 投稿フォーム -->
+  <div class="post-form">
+    <textarea id="content" placeholder="いまどうしてる？" rows="3" style="width:100%;"></textarea><br>
     <input type="file" id="image"><br>
-    <button type="submit">投稿</button>
-  </form>
+    <button id="submit">投稿</button>
+  </div>
 
-  <script type="module">
-    import { createClient } from "https://esm.sh/@supabase/supabase-js";
+  <!-- タイムライン -->
+  <div id="timeline"></div>
 
-    // ← いずみちゃんの Supabase URL と anon key を入れてね！
-    const supabaseUrl = "https://yvxynwjfngvqwjjsqdma.supabase.co";
-    const supabaseKey = "eyJhbGciOi...（省略）";
-    const supabase = createClient(supabaseUrl, supabaseKey);
+  <script>
+    const SUPABASE_URL = "https://yvxynwjfngvqwjjsqdma.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU";
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    document.getElementById("post-form").addEventListener("submit", async (e) => {
-      e.preventDefault();
-
+    // 投稿処理
+    document.getElementById("submit").addEventListener("click", async () => {
       const content = document.getElementById("content").value;
       const file = document.getElementById("image").files[0];
 
-      // ログイン中のユーザーを取得
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) {
-        alert("ログインしていません");
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert("ログインしてください！");
         return;
       }
 
-      // 画像アップロード処理
       let imageUrl = null;
       if (file) {
-        const filePath = `${user.id}/${Date.now()}-${file.name}`;
+        const fileName = `${user.id}_${Date.now()}_${file.name}`;
         const { error: uploadError } = await supabase.storage
-          .from("images") // ←バケット名は「images」にしてる？
-          .upload(filePath, file);
+          .from("images")
+          .upload(fileName, file);
 
         if (uploadError) {
           alert("画像アップロード失敗: " + uploadError.message);
           return;
         }
-        imageUrl = `${supabaseUrl}/storage/v1/object/public/images/${filePath}`;
+        const { data: publicUrlData } = supabase.storage.from("images").getPublicUrl(fileName);
+        imageUrl = publicUrlData.publicUrl;
       }
 
-      // 投稿データを挿入
       const { error: insertError } = await supabase
         .from("posts")
         .insert([
           {
             content: content,
             image_url: imageUrl,
-            user_id: user.id // ← これが無いと RLS で弾かれる
+            user_id: user.id  // 🔥 これが大事！
           }
         ]);
 
       if (insertError) {
         alert("投稿失敗: " + insertError.message);
-        console.error(insertError);
       } else {
-        alert("投稿成功！");
-        document.getElementById("post-form").reset();
+        document.getElementById("content").value = "";
+        document.getElementById("image").value = "";
+        loadTimeline();
       }
     });
+
+    // タイムライン取得
+    async function loadTimeline() {
+      const { data, error } = await supabase
+        .from("posts")
+        .select("id, content, image_url, created_at, user_id")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        document.getElementById("timeline").innerHTML = "読み込みエラー: " + error.message;
+        return;
+      }
+
+      const timeline = document.getElementById("timeline");
+      timeline.innerHTML = "";
+      data.forEach(post => {
+        const div = document.createElement("div");
+        div.className = "post";
+        div.innerHTML = `
+          <p>${post.content}</p>
+          ${post.image_url ? `<img src="${post.image_url}" style="max-width:100%;">` : ""}
+          <small>${new Date(post.created_at).toLocaleString()}</small>
+        `;
+        timeline.appendChild(div);
+      });
+    }
+
+    // 初回ロード
+    loadTimeline();
   </script>
 </body>
 </html>
