@@ -2,57 +2,94 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>Vtube｜タイムライン</title>
-  <script src="https://unpkg.com/@supabase/supabase-js"></script>
+  <title>VTube - 通知</title>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <style>
-    body { font-family: sans-serif; background: #f5f5f5; padding: 20px; }
-    .post { background: white; border-radius: 10px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);}
-    .post img { max-width: 100%; border-radius: 10px; margin-top: 10px; }
-    .user { font-weight: bold; margin-bottom: 5px; }
-    .time { color: #666; font-size: 12px; }
+    body { font-family: sans-serif; max-width: 600px; margin: 20px auto; }
+    h1 { text-align: center; }
+    .notif {
+      padding: 10px;
+      border-bottom: 1px solid #ddd;
+    }
+    .notif img {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      vertical-align: middle;
+      margin-right: 5px;
+    }
   </style>
 </head>
 <body>
-  <h1>✨Vtube｜タイムライン</h1>
-  <div id="posts"></div>
+  <h1>🔔 通知</h1>
+  <div id="notifications">読み込み中...</div>
 
   <script>
-    const SUPABASE_URL = "https://yvxynwjfngvqwjjsqdma.supabase.co"; // ← いずみのURL
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU";
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const supabase = window.supabase.createClient(
+      "https://yvxynwjfngvqwjjsqdma.supabase.co",
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU"
+    );
 
-    async function loadPosts() {
-      const { data, error } = await supabase
-        .from("posts")
-        .select("*")   // profilesはまだ外す
+    let currentUser = null;
+
+    // 🔑 ログイン確認
+    async function checkLogin() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert("ログインしてください");
+        window.location.href = "login.html";
+        return;
+      }
+      currentUser = user;
+    }
+
+    // 🔔 通知読み込み
+    async function loadNotifications() {
+      const { data: notifs, error } = await supabase
+        .from("notifications")
+        .select(`
+          id, type, created_at, post_id,
+          from_user:from_user_id (username, avatar_url)
+        `)
+        .eq("user_id", currentUser.id)
         .order("created_at", { ascending: false });
 
       if (error) {
-        console.error("エラー:", error);
+        console.error(error);
+        document.getElementById("notifications").innerText = "エラーが発生しました";
         return;
       }
 
-      console.log("postsデータ:", data); // デバッグ用に出力
+      const box = document.getElementById("notifications");
+      if (!notifs || notifs.length === 0) {
+        box.innerHTML = "<p>通知はまだありません</p>";
+        return;
+      }
 
-      const container = document.getElementById("posts");
-      container.innerHTML = "";
+      box.innerHTML = "";
+      notifs.forEach(n => {
+        const who = n.from_user?.username || "誰か";
+        const avatar = n.from_user?.avatar_url || "https://placehold.jp/30x30.png";
 
-      data.forEach(post => {
+        let message = "";
+        if (n.type === "like") {
+          message = `❤️ ${who} さんがあなたの投稿にいいねしました`;
+        } else if (n.type === "comment") {
+          message = `💬 ${who} さんがあなたの投稿にコメントしました`;
+        }
+
         const div = document.createElement("div");
-        div.className = "post";
-
+        div.className = "notif";
         div.innerHTML = `
-          <div class="user">${post.user_id || "名無し"}</div>
-          <div>${post.content || ""}</div>
-          ${post.image_url ? `<img src="${post.image_url}">` : ""}
-          <div class="time">${new Date(post.created_at).toLocaleString()}</div>
+          <img src="${avatar}">
+          ${message}
+          <br><small style="color:gray;">${new Date(n.created_at).toLocaleString()}</small>
         `;
-
-        container.appendChild(div);
+        box.appendChild(div);
       });
     }
 
-    loadPosts();
+    checkLogin().then(loadNotifications);
   </script>
 </body>
 </html>
