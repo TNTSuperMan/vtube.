@@ -2,145 +2,89 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>VTube ホーム</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <title>VTube - ホーム</title>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <style>
     body {
-      font-family: sans-serif;
-      margin: 0;
-      padding: 0;
-      background: #f9f9f9;
-    }
-    header {
-      background: #0080ff;
-      color: white;
-      padding: 10px;
+      font-family: "Comic Sans MS", "Noto Sans JP", sans-serif;
+      background: linear-gradient(135deg, #ffe6f0, #e6f7ff);
       display: flex;
-      justify-content: space-between;
+      justify-content: center;
       align-items: center;
+      height: 100vh;
+      margin: 0;
     }
-    nav a {
-      color: white;
-      margin: 0 10px;
-      text-decoration: none;
+    .box {
+      background: #fff;
+      padding: 30px;
+      border-radius: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      width: 320px;
+      text-align: center;
     }
-    .container {
-      padding: 20px;
+    h2 {
+      margin-bottom: 20px;
+      color: #66ccff;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
+      border: 1px solid #ccc;
+      border-radius: 12px;
     }
     button {
-      background: #ff4d4d;
-      color: white;
-      border: none;
-      padding: 8px 12px;
-      cursor: pointer;
-      border-radius: 4px;
-    }
-    .profile {
-      background: white;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-      max-width: 400px;
-    }
-    input, textarea {
       width: 100%;
-      margin: 5px 0;
-      padding: 8px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-    }
-    .avatar {
-      width: 80px;
-      height: 80px;
-      border-radius: 50%;
-      object-fit: cover;
-      margin-bottom: 10px;
+      padding: 10px;
+      border: none;
+      border-radius: 20px;
+      background: linear-gradient(90deg, #ff99cc, #66ccff);
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 10px;
     }
   </style>
 </head>
 <body>
-  <header>
-    <div>🎬 VTube</div>
-    <nav>
-      <a href="home.html">ホーム</a>
-      <a href="twitter.html">タイムライン</a>
-      <a href="youtube.html">動画</a>
-      <button id="logout">ログアウト</button>
-    </nav>
-  </header>
-
-  <div class="container">
-    <h2 id="welcome">ようこそ！</h2>
-
-    <div class="profile">
-      <img id="avatar" class="avatar" src="https://via.placeholder.com/80" alt="avatar">
-      <input type="text" id="username" placeholder="表示名">
-      <textarea id="bio" placeholder="自己紹介"></textarea>
-      <input type="text" id="avatar_url" placeholder="アイコン画像URL">
-      <button id="save">プロフィールを保存</button>
-    </div>
+  <div class="box">
+    <h2>プロフィール登録</h2>
+    <input type="text" id="username" placeholder="ユーザー名">
+    <button onclick="saveProfile()">保存してタイムラインへ</button>
   </div>
 
   <script>
-    const supabase = supabase.createClient(
-      "https://yvxynwjfngvqwjjsqdma.supabase.co",
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU"
-    );
+    const supabaseUrl = "https://yvxynwjfngvqwjjsqdma.supabase.co"; // ←差し替え
+    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU"; // ←差し替え
+    const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
-    let currentUser;
+    async function saveProfile() {
+      const username = document.getElementById("username").value.trim();
+      if (!username) {
+        alert("ユーザー名を入力してください");
+        return;
+      }
 
-    async function checkUser() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        window.location.href = "login.html";
+      const { data: userData, error: userError } = await supabaseClient.auth.getUser();
+      if (userError || !userData.user) {
+        alert("ログイン情報がありません");
+        return;
+      }
+
+      const userId = userData.user.id;
+
+      // 🔹 プロフィールを upsert（更新 or 挿入）
+      const { error } = await supabaseClient.from("profiles").upsert({
+        id: userId,
+        username: username,
+      });
+
+      if (error) {
+        alert("保存エラー: " + error.message);
       } else {
-        currentUser = user;
-        document.getElementById("welcome").innerText = `ようこそ ${user.email} さん！`;
-        loadProfile(user.id);
+        location.href = "twitter.html"; // タイムラインへ移動
       }
     }
-
-    async function loadProfile(user_id) {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("user_id", user_id)
-        .single();
-
-      if (data) {
-        document.getElementById("username").value = data.username || "";
-        document.getElementById("bio").value = data.bio || "";
-        document.getElementById("avatar_url").value = data.avatar_url || "";
-        document.getElementById("avatar").src = data.avatar_url || "https://via.placeholder.com/80";
-      }
-    }
-
-    document.getElementById("save").addEventListener("click", async () => {
-      const username = document.getElementById("username").value;
-      const bio = document.getElementById("bio").value;
-      const avatar_url = document.getElementById("avatar_url").value;
-
-      const { error } = await supabase
-        .from("profiles")
-        .upsert({
-          user_id: currentUser.id,
-          username,
-          bio,
-          avatar_url
-        });
-
-      if (!error) {
-        alert("プロフィールを保存しました！");
-        document.getElementById("avatar").src = avatar_url || "https://via.placeholder.com/80";
-      }
-    });
-
-    document.getElementById("logout").addEventListener("click", async () => {
-      await supabase.auth.signOut();
-      window.location.href = "login.html";
-    });
-
-    checkUser();
   </script>
 </body>
 </html>
