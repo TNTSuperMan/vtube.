@@ -1,61 +1,98 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>Vtube タイムライン</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <title>Vtube - タイムライン</title>
+  <script src="https://unpkg.com/@supabase/supabase-js"></script>
 </head>
 <body>
-  <h2>タイムライン</h2>
-  <div id="posts"></div>
+  <h1>📺 Vtube タイムライン</h1>
 
-  <button onclick="logout()">ログアウト</button>
+  <!-- 投稿フォーム -->
+  <div id="post-form">
+    <textarea id="postContent" placeholder="いまどうしてる？"></textarea><br>
+    <input type="file" id="postImage"><br>
+    <button id="submitPost">投稿する</button>
+  </div>
+
+  <hr>
+
+  <!-- 投稿一覧 -->
+  <div id="timeline"></div>
 
   <script>
-    const supabase = window.supabase.createClient(
-      "https://yvxynwjfngvqwjjsqdma.supabase.co",
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU"
-    );
+    const SUPABASE_URL = "https://yvxynwjfngvqwjjsqdma.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU";
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // 🔒 ページを開いたときにセッション確認
-    checkLogin();
-
-    async function checkLogin() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        // 未ログイン → ログインページへ
-        window.location.href = "login.html";
-      } else {
-        console.log("ログイン中:", session.user.email);
-        loadPosts();
+    // 投稿処理
+    document.getElementById("submitPost").addEventListener("click", async () => {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) {
+        alert("ログインしてください");
+        return;
       }
-    }
 
-    // 🔓 ログアウト処理
-    async function logout() {
-      await supabase.auth.signOut();
-      window.location.href = "login.html";
-    }
+      const content = document.getElementById("postContent").value;
+      const file = document.getElementById("postImage").files[0];
+      let imageUrl = null;
 
-    // 📝 タイムライン読み込み
-    async function loadPosts() {
-      const { data, error } = await supabase
-        .from("posts")   // ← あなたが作ったテーブル名
-        .select("id, content, created_at");
+      // 画像アップロード
+      if (file) {
+        const filePath = `${user.id}/${Date.now()}-${file.name}`;
+        const { data, error } = await supabase.storage.from("images").upload(filePath, file);
+        if (error) {
+          console.error(error);
+        } else {
+          const { data: publicUrl } = supabase.storage.from("images").getPublicUrl(filePath);
+          imageUrl = publicUrl.publicUrl;
+        }
+      }
+
+      // 投稿保存
+      const { error: insertError } = await supabase
+        .from("posts")
+        .insert([{ user_id: user.id, content, image_url: imageUrl }]);
+
+      if (insertError) {
+        console.error(insertError);
+        alert("投稿に失敗しました");
+      } else {
+        document.getElementById("postContent").value = "";
+        document.getElementById("postImage").value = "";
+        loadTimeline();
+      }
+    });
+
+    // タイムライン取得
+    async function loadTimeline() {
+      const { data: posts, error } = await supabase
+        .from("posts")
+        .select("*, profiles(username, avatar_url)")
+        .order("created_at", { ascending: false });
 
       if (error) {
         console.error(error);
         return;
       }
 
-      const postsDiv = document.getElementById("posts");
-      postsDiv.innerHTML = data.map(p =>
-        `<div>
-           <p>${p.content}</p>
-           <small>${p.created_at}</small>
-         </div>`
-      ).join("");
+      const timeline = document.getElementById("timeline");
+      timeline.innerHTML = "";
+
+      posts.forEach(post => {
+        const div = document.createElement("div");
+        div.innerHTML = `
+          <p><strong>${post.profiles?.username || "名無し"}</strong></p>
+          <p>${post.content}</p>
+          ${post.image_url ? `<img src="${post.image_url}" width="200">` : ""}
+          <hr>
+        `;
+        timeline.appendChild(div);
+      });
     }
+
+    // 初期ロード
+    loadTimeline();
   </script>
 </body>
 </html>
