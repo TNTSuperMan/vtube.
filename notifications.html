@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>VTube - 通知</title>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 20px auto; }
+    h1 { text-align: center; }
+    .notif {
+      padding: 10px;
+      border-bottom: 1px solid #ddd;
+    }
+    .notif img {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      vertical-align: middle;
+      margin-right: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔔 通知</h1>
+  <div id="notifications">読み込み中...</div>
+
+  <script>
+    const supabase = window.supabase.createClient(
+      "https://yvxynwjfngvqwjjsqdma.supabase.co",
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU"
+    );
+
+    let currentUser = null;
+
+    // 🔑 ログイン確認
+    async function checkLogin() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert("ログインしてください");
+        window.location.href = "login.html";
+        return;
+      }
+      currentUser = user;
+    }
+
+    // 🔔 通知読み込み
+    async function loadNotifications() {
+      const { data: notifs, error } = await supabase
+        .from("notifications")
+        .select(`
+          id, type, created_at, post_id,
+          from_user:from_user_id (username, avatar_url)
+        `)
+        .eq("user_id", currentUser.id)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error(error);
+        document.getElementById("notifications").innerText = "エラーが発生しました";
+        return;
+      }
+
+      const box = document.getElementById("notifications");
+      if (!notifs || notifs.length === 0) {
+        box.innerHTML = "<p>通知はまだありません</p>";
+        return;
+      }
+
+      box.innerHTML = "";
+      notifs.forEach(n => {
+        const who = n.from_user?.username || "誰か";
+        const avatar = n.from_user?.avatar_url || "https://placehold.jp/30x30.png";
+
+        let message = "";
+        if (n.type === "like") {
+          message = `❤️ ${who} さんがあなたの投稿にいいねしました`;
+        } else if (n.type === "comment") {
+          message = `💬 ${who} さんがあなたの投稿にコメントしました`;
+        }
+
+        const div = document.createElement("div");
+        div.className = "notif";
+        div.innerHTML = `
+          <img src="${avatar}">
+          ${message}
+          <br><small style="color:gray;">${new Date(n.created_at).toLocaleString()}</small>
+        `;
+        box.appendChild(div);
+      });
+    }
+
+    checkLogin().then(loadNotifications);
+  </script>
+</body>
+</html>
