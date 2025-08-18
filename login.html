@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>ログイン - MySNS</title>
+</head>
+<body>
+  <h2>ログイン / 新規登録</h2>
+  <input id="email" type="email" placeholder="メールアドレス"><br>
+  <input id="password" type="password" placeholder="パスワード"><br>
+  <button onclick="signup()">新規登録</button>
+  <button onclick="login()">ログイン</button>
+
+  <script type="module">
+    import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+
+    // Supabase プロジェクト設定
+    const supabaseUrl = "https://yvxynwjfngvqwjjsqdma.supabase.co"
+    const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU"
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+    // 新規登録
+    async function signup() {
+      const email = document.getElementById("email").value
+      const password = document.getElementById("password").value
+      const { error } = await supabase.auth.signUp({ email, password })
+      if (error) {
+        alert("エラー: " + error.message)
+      } else {
+        alert("登録完了！メールを確認してください。")
+      }
+    }
+
+    // ログイン
+    async function login() {
+      const email = document.getElementById("email").value
+      const password = document.getElementById("password").value
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) {
+        alert("エラー: " + error.message)
+      } else {
+        alert("ログイン成功！")
+        window.location.href = "twitter.html" // ←ログイン後に移動するページ
+      }
+    }
+  </script>
+</body>
+</html>
