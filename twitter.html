@@ -1,158 +1,156 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
   <meta charset="UTF-8">
   <title>VTube - タイムライン</title>
-  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-  <style>
-    body { font-family: sans-serif; max-width: 600px; margin: 20px auto; }
-    h1 { text-align: center; }
-    form { margin-bottom: 20px; }
-    .post { border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 8px; }
-    .post img.avatar { width: 30px; height: 30px; border-radius: 50%; vertical-align: middle; margin-right: 5px; }
-    .post img.post-img { max-width: 100%; margin-top: 10px; border-radius: 8px; }
-    .like-btn, .comment-btn { cursor: pointer; color: blue; margin-right: 10px; }
-    .comments { margin-top: 10px; padding-left: 20px; }
-    .comment { font-size: 0.9em; border-top: 1px solid #eee; padding: 5px 0; }
-  </style>
+  <script src="https://unpkg.com/@supabase/supabase-js"></script>
 </head>
 <body>
-  <h1>🐦 VTube - タイムライン</h1>
+  <h1>VTube - タイムライン</h1>
 
-  <!-- 投稿フォーム -->
+  <!-- 🔔 通知バッジ -->
+  <div style="text-align:right; margin-bottom:10px;">
+    <a href="notifications.html">🔔通知 <span id="notifCount">0</span></a>
+  </div>
+
   <form id="postForm">
     <textarea id="content" placeholder="いまどうしてる？" required></textarea><br>
-    <input type="file" id="image" accept="image/*"><br>
+    <input type="file" id="imageInput" accept="image/*"><br>
     <button type="submit">投稿</button>
   </form>
 
-  <div id="posts">読み込み中...</div>
+  <div id="posts"></div>
 
   <script>
-    const supabase = window.supabase.createClient(
-      "https://yvxynwjfngvqwjjsqdma.supabase.co",
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU"
-    );
-
+    const supabaseUrl = "https://yvxynwjfngvqwjjsqdma.supabase.co";
+    const supabaseKey = "YOUR_KEY_HERE"; // ←いずみのキー貼ってね
+    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
     let currentUser = null;
 
-    // 🔑 ログイン確認
     async function checkLogin() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        alert("ログインしてください");
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) {
         window.location.href = "login.html";
-        return;
+      } else {
+        currentUser = data.user;
       }
-      currentUser = user;
     }
 
-    // ✍ 投稿処理
+    // 投稿ロード
+    async function loadPosts() {
+      const { data, error } = await supabase
+        .from("posts")
+        .select("*, users(username, avatar_url)")
+        .order("created_at", { ascending: false });
+
+      if (!error) {
+        const postsDiv = document.getElementById("posts");
+        postsDiv.innerHTML = "";
+        data.forEach(post => {
+          const div = document.createElement("div");
+          div.innerHTML = `
+            <p><img src="${post.users.avatar_url}" width="30"> <b>${post.users.username}</b></p>
+            <p>${post.content}</p>
+            ${post.image_url ? `<img src="${post.image_url}" width="200">` : ""}
+            <button onclick="likePost('${post.id}','${post.user_id}')">❤️ いいね</button>
+            <div>
+              <input type="text" id="comment-${post.id}" placeholder="コメントを書く">
+              <button onclick="addComment('${post.id}','${post.user_id}')">送信</button>
+            </div>
+          `;
+          postsDiv.appendChild(div);
+        });
+      }
+    }
+
+    // いいね
+    async function likePost(postId, postUserId) {
+      await supabase.from("likes").insert([{ user_id: currentUser.id, post_id: postId }]);
+      // 通知追加
+      if (postUserId !== currentUser.id) {
+        await supabase.from("notifications").insert([{
+          user_id: postUserId,
+          from_user_id: currentUser.id,
+          type: "like",
+          post_id: postId,
+          read: false
+        }]);
+      }
+    }
+
+    // コメント
+    async function addComment(postId, postUserId) {
+      const input = document.getElementById(`comment-${postId}`);
+      const content = input.value;
+      if (!content) return;
+
+      await supabase.from("comments").insert([{ user_id: currentUser.id, post_id: postId, content }]);
+      input.value = "";
+
+      // 通知追加
+      if (postUserId !== currentUser.id) {
+        await supabase.from("notifications").insert([{
+          user_id: postUserId,
+          from_user_id: currentUser.id,
+          type: "comment",
+          post_id: postId,
+          read: false
+        }]);
+      }
+    }
+
+    // 🔔 未読通知数ロード
+    async function loadNotifications() {
+      const { data, error } = await supabase
+        .from("notifications")
+        .select("*")
+        .eq("user_id", currentUser.id)
+        .eq("read", false);
+
+      if (!error) {
+        document.getElementById("notifCount").textContent = data.length;
+      }
+    }
+
+    // 🔴 リアルタイム購読
+    function subscribeNotifications() {
+      supabase
+        .channel('notifications')
+        .on('postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${currentUser.id}` },
+          payload => {
+            loadNotifications();
+          }
+        )
+        .subscribe();
+    }
+
+    // 投稿処理
     document.getElementById("postForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       const content = document.getElementById("content").value;
-      const file = document.getElementById("image").files[0];
+      const file = document.getElementById("imageInput").files[0];
       let imageUrl = null;
 
       if (file) {
-        const { data, error } = await supabase.storage.from("images").upload(`${Date.now()}_${file.name}`, file);
+        const { data, error } = await supabase.storage.from("images").upload(`${Date.now()}-${file.name}`, file);
         if (!error) {
-          const { data: urlData } = supabase.storage.from("images").getPublicUrl(data.path);
-          imageUrl = urlData.publicUrl;
+          const { data: publicUrl } = supabase.storage.from("images").getPublicUrl(data.path);
+          imageUrl = publicUrl.publicUrl;
         }
       }
 
       await supabase.from("posts").insert([{ user_id: currentUser.id, content, image_url: imageUrl }]);
       document.getElementById("content").value = "";
-      document.getElementById("image").value = "";
+      document.getElementById("imageInput").value = "";
       loadPosts();
     });
 
-    // ❤️ いいね処理 + 通知
-    async function likePost(postId, postUserId) {
-      const { error } = await supabase.from("likes").insert([{ user_id: currentUser.id, post_id: postId }]);
-      if (!error) {
-        await supabase.from("notifications").insert([{
-          user_id: postUserId,
-          from_user_id: currentUser.id,
-          type: "like",
-          post_id: postId
-        }]);
-        loadPosts();
-      }
-    }
-
-    // 💬 コメント処理 + 通知
-    async function addComment(postId, postUserId, content) {
-      const { error } = await supabase.from("comments").insert([{ user_id: currentUser.id, post_id: postId, content }]);
-      if (!error) {
-        await supabase.from("notifications").insert([{
-          user_id: postUserId,
-          from_user_id: currentUser.id,
-          type: "comment",
-          post_id: postId
-        }]);
-        loadPosts();
-      }
-    }
-
-    // 📥 投稿一覧
-    async function loadPosts() {
-      const { data: posts, error } = await supabase
-        .from("posts")
-        .select(`
-          id, content, image_url, created_at,
-          user: user_id (username, avatar_url, id),
-          likes (user_id),
-          comments (id, content, user: user_id (username))
-        `)
-        .order("created_at", { ascending: false });
-
-      const box = document.getElementById("posts");
-      if (error) {
-        box.innerHTML = "エラーが発生しました";
-        return;
-      }
-
-      box.innerHTML = "";
-      posts.forEach(p => {
-        const liked = p.likes.some(l => l.user_id === currentUser.id);
-        const div = document.createElement("div");
-        div.className = "post";
-        div.innerHTML = `
-          <div>
-            <img class="avatar" src="${p.user.avatar_url || "https://placehold.jp/30x30.png"}">
-            <b>${p.user.username || "名無し"}</b>
-            <small style="color:gray;">${new Date(p.created_at).toLocaleString()}</small>
-          </div>
-          <p>${p.content}</p>
-          ${p.image_url ? `<img src="${p.image_url}" class="post-img">` : ""}
-          <div>
-            <span class="like-btn">${liked ? "❤️いいね済み" : "♡いいね"}</span>(${p.likes.length})
-            <span class="comment-btn">💬コメント</span>(${p.comments.length})
-          </div>
-          <div class="comments">
-            ${p.comments.map(c => `<div class="comment"><b>${c.user.username}:</b> ${c.content}</div>`).join("")}
-            <input type="text" placeholder="コメントを書く" class="comment-input">
-            <button class="comment-submit">送信</button>
-          </div>
-        `;
-
-        // いいねボタン
-        div.querySelector(".like-btn").onclick = () => likePost(p.id, p.user.id);
-        // コメント送信
-        div.querySelector(".comment-submit").onclick = () => {
-          const input = div.querySelector(".comment-input");
-          if (input.value.trim() !== "") {
-            addComment(p.id, p.user.id, input.value.trim());
-          }
-        };
-
-        box.appendChild(div);
-      });
-    }
-
-    checkLogin().then(loadPosts);
+    checkLogin().then(() => {
+      loadPosts();
+      loadNotifications();
+      subscribeNotifications();
+    });
   </script>
 </body>
 </html>
