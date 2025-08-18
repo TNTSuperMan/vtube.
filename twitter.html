@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>VTube Timeline</title>
+  <title>VTube - タイムライン</title>
   <style>
     body {
       font-family: "Comic Sans MS", "Noto Sans JP", sans-serif;
@@ -99,7 +99,7 @@
   </style>
 </head>
 <body>
-  <header>🐰 VTube Timeline</header>
+  <header>🐰 タイムライン　🐰</header>
   <div class="container">
     <div class="post-box">
       <textarea id="postContent" placeholder="いまどうしてる？"></textarea>
@@ -110,7 +110,7 @@
 
   <script>
     // アイコン候補（好きなの増やしてもOK！）
-    const avatars = ["🐰","🐱","🐻","🐥","🐸","🐧","🦊","🐼"];
+    const avatars = ["🐰"];
 
     // ランダムでアイコンを決める
     function getRandomAvatar() {
@@ -134,7 +134,7 @@
 
       const usernameSpan = document.createElement("span");
       usernameSpan.className = "username";
-      usernameSpan.textContent = "いずみ"; // ←ここをSupabaseのユーザー名に差し替え可
+      usernameSpan.textContent = "username"; // ←ここをSupabaseのユーザー名に差し替え可
 
       const dateSpan = document.createElement("span");
       dateSpan.className = "date";
