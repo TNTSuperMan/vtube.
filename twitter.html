@@ -2,97 +2,55 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>Vtube - タイムライン</title>
+  <title>Vtube タイムライン</title>
   <script src="https://unpkg.com/@supabase/supabase-js"></script>
+  <style>
+    body { font-family: sans-serif; background: #f5f5f5; padding: 20px; }
+    .post { background: white; border-radius: 10px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);}
+    .post img { max-width: 100%; border-radius: 10px; margin-top: 10px; }
+    .user { font-weight: bold; margin-bottom: 5px; }
+    .time { color: #666; font-size: 12px; }
+  </style>
 </head>
 <body>
-  <h1>📺 Vtube タイムライン</h1>
-
-  <!-- 投稿フォーム -->
-  <div id="post-form">
-    <textarea id="postContent" placeholder="いまどうしてる？"></textarea><br>
-    <input type="file" id="postImage"><br>
-    <button id="submitPost">投稿する</button>
-  </div>
-
-  <hr>
-
-  <!-- 投稿一覧 -->
-  <div id="timeline"></div>
+  <h1>📢 Vtube タイムライン</h1>
+  <div id="posts"></div>
 
   <script>
-    const SUPABASE_URL = "https://yvxynwjfngvqwjjsqdma.supabase.co";
-    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU";
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const SUPABASE_URL = "https://yvxynwjfngvqwjjsqdma.supabase.co"; // ← 自分のURL
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU";
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // 投稿処理
-    document.getElementById("submitPost").addEventListener("click", async () => {
-      const user = (await supabase.auth.getUser()).data.user;
-      if (!user) {
-        alert("ログインしてください");
-        return;
-      }
-
-      const content = document.getElementById("postContent").value;
-      const file = document.getElementById("postImage").files[0];
-      let imageUrl = null;
-
-      // 画像アップロード
-      if (file) {
-        const filePath = `${user.id}/${Date.now()}-${file.name}`;
-        const { data, error } = await supabase.storage.from("images").upload(filePath, file);
-        if (error) {
-          console.error(error);
-        } else {
-          const { data: publicUrl } = supabase.storage.from("images").getPublicUrl(filePath);
-          imageUrl = publicUrl.publicUrl;
-        }
-      }
-
-      // 投稿保存
-      const { error: insertError } = await supabase
+    async function loadPosts() {
+      const { data, error } = await supabase
         .from("posts")
-        .insert([{ user_id: user.id, content, image_url: imageUrl }]);
-
-      if (insertError) {
-        console.error(insertError);
-        alert("投稿に失敗しました");
-      } else {
-        document.getElementById("postContent").value = "";
-        document.getElementById("postImage").value = "";
-        loadTimeline();
-      }
-    });
-
-    // タイムライン取得
-    async function loadTimeline() {
-      const { data: posts, error } = await supabase
-        .from("posts")
-        .select("*, profiles(username, avatar_url)")
+        .select("id, content, image_url, created_at, profiles(username)")
         .order("created_at", { ascending: false });
 
       if (error) {
-        console.error(error);
+        console.error("エラー:", error);
         return;
       }
 
-      const timeline = document.getElementById("timeline");
-      timeline.innerHTML = "";
+      const container = document.getElementById("posts");
+      container.innerHTML = "";
 
-      posts.forEach(post => {
+      data.forEach(post => {
         const div = document.createElement("div");
+        div.className = "post";
+
         div.innerHTML = `
-          <p><strong>${post.profiles?.username || "名無し"}</strong></p>
-          <p>${post.content}</p>
-          ${post.image_url ? `<img src="${post.image_url}" width="200">` : ""}
-          <hr>
+          <div class="user">${post.profiles?.username || "名無し"}</div>
+          <div>${post.content}</div>
+          ${post.image_url ? `<img src="${post.image_url}">` : ""}
+          <div class="time">${new Date(post.created_at).toLocaleString()}</div>
         `;
-        timeline.appendChild(div);
+
+        container.appendChild(div);
       });
     }
 
-    // 初期ロード
-    loadTimeline();
+    loadPosts();
   </script>
 </body>
 </html>
