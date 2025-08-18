@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>投稿 - Vtube</title>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <h1>Vtube 投稿画面</h1>
+
+  <form id="post-form">
+    <textarea id="content" placeholder="いまどうしてる？" required></textarea><br>
+    <input type="file" id="image"><br>
+    <button type="submit">投稿する</button>
+  </form>
+
+  <p id="message"></p>
+
+  <script>
+    const SUPABASE_URL = "https://yvxynwjfngvqwjjsqdma.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU";
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    document.getElementById("post-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const content = document.getElementById("content").value;
+      const imageFile = document.getElementById("image").files[0];
+
+      // 現在ログイン中のユーザーを取得
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        document.getElementById("message").textContent = "ログインしてください";
+        return;
+      }
+
+      let imageUrl = null;
+      if (imageFile) {
+        // Supabase Storage に保存
+        const fileName = `${user.id}/${Date.now()}_${imageFile.name}`;
+        let { error: uploadError } = await supabase.storage.from("images").upload(fileName, imageFile);
+        if (uploadError) {
+          document.getElementById("message").textContent = "画像アップロード失敗: " + uploadError.message;
+          return;
+        }
+        imageUrl = supabase.storage.from("images").getPublicUrl(fileName).data.publicUrl;
+      }
+
+      // 投稿データを挿入
+      const { error } = await supabase.from("posts").insert([
+        { user_id: user.id, content, image_url: imageUrl }
+      ]);
+
+      if (error) {
+        document.getElementById("message").textContent = "投稿失敗: " + error.message;
+      } else {
+        document.getElementById("message").textContent = "投稿成功！";
+        document.getElementById("content").value = "";
+        document.getElementById("image").value = "";
+      }
+    });
+  </script>
+</body>
+</html>
