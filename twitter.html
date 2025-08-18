@@ -1,144 +1,71 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <title>VTube タイムライン</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <style>
-    body {
-      font-family: sans-serif;
-      margin: 0;
-      padding: 0;
-      background: #f4f4f4;
-    }
-    header {
-      background: #1DA1F2;
-      color: white;
-      padding: 10px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    nav a {
-      color: white;
-      margin: 0 10px;
-      text-decoration: none;
-    }
-    .container {
-      padding: 20px;
-      max-width: 600px;
-      margin: auto;
-    }
-    textarea {
-      width: 100%;
-      height: 80px;
-      padding: 10px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-      resize: none;
-    }
-    button {
-      background: #1DA1F2;
-      color: white;
-      border: none;
-      padding: 8px 12px;
-      cursor: pointer;
-      border-radius: 4px;
-      margin-top: 8px;
-      float: right;
-    }
-    .post {
-      background: white;
-      padding: 15px;
-      border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-      margin-top: 15px;
-    }
-    .post small {
-      color: gray;
-      font-size: 12px;
-    }
-  </style>
-</head>
-<body>
-  <header>
-    <div>🐦 VTube タイムライン</div>
-    <nav>
-      <a href="home.html">ホーム</a>
-      <a href="twitter.html">タイムライン</a>
-      <a href="youtube.html">動画</a>
-      <button id="logout">ログアウト</button>
-    </nav>
-  </header>
+<script>
+  const supabase = supabase.createClient(
+    "https://yvxynwjfngvqwjjsqdma.supabase.co",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU"
+  );
 
-  <div class="container">
-    <h2>投稿する</h2>
-    <textarea id="postContent" placeholder="いまどうしてる？"></textarea>
-    <button id="postButton">投稿</button>
+  let currentUser;
 
-    <h2>タイムライン</h2>
-    <div id="timeline"></div>
-  </div>
-
-  <script>
-    const supabase = supabase.createClient(
-      "https://yvxynwjfngvqwjjsqdma.supabase.co",
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU"
-    );
-
-    let currentUser;
-
-    async function checkUser() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        window.location.href = "login.html";
-      } else {
-        currentUser = user;
-        loadPosts();
-      }
-    }
-
-    async function loadPosts() {
-      const { data: posts, error } = await supabase
-        .from("posts")
-        .select("content, created_at, user_id")
-        .order("created_at", { ascending: false });
-
-      const timeline = document.getElementById("timeline");
-      timeline.innerHTML = "";
-
-      posts.forEach(post => {
-        const div = document.createElement("div");
-        div.className = "post";
-        div.innerHTML = `
-          <p>${post.content}</p>
-          <small>${new Date(post.created_at).toLocaleString()}</small>
-        `;
-        timeline.appendChild(div);
-      });
-    }
-
-    document.getElementById("postButton").addEventListener("click", async () => {
-      const content = document.getElementById("postContent").value.trim();
-      if (content === "") return;
-
-      const { error } = await supabase.from("posts").insert({
-        user_id: currentUser.id,
-        content
-      });
-
-      if (!error) {
-        document.getElementById("postContent").value = "";
-        loadPosts();
-      }
-    });
-
-    document.getElementById("logout").addEventListener("click", async () => {
-      await supabase.auth.signOut();
+  async function checkUser() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
       window.location.href = "login.html";
+    } else {
+      currentUser = user;
+      loadPosts();
+    }
+  }
+
+  async function loadPosts() {
+    const { data: posts, error } = await supabase
+      .from("posts")
+      .select(`
+        content, created_at,
+        profiles:user_id (username, avatar_url)
+      `)
+      .order("created_at", { ascending: false });
+
+    const timeline = document.getElementById("timeline");
+    timeline.innerHTML = "";
+
+    posts.forEach(post => {
+      const div = document.createElement("div");
+      div.className = "post";
+
+      const avatar = post.profiles?.avatar_url || "https://placehold.jp/50x50.png";
+      const username = post.profiles?.username || "名無し";
+
+      div.innerHTML = `
+        <div style="display:flex; align-items:center; gap:10px;">
+          <img src="${avatar}" style="width:40px; height:40px; border-radius:50%;">
+          <strong>${username}</strong>
+        </div>
+        <p>${post.content}</p>
+        <small>${new Date(post.created_at).toLocaleString()}</small>
+      `;
+      timeline.appendChild(div);
+    });
+  }
+
+  document.getElementById("postButton").addEventListener("click", async () => {
+    const content = document.getElementById("postContent").value.trim();
+    if (content === "") return;
+
+    const { error } = await supabase.from("posts").insert({
+      user_id: currentUser.id,
+      content
     });
 
-    checkUser();
-  </script>
-</body>
-</html>
+    if (!error) {
+      document.getElementById("postContent").value = "";
+      loadPosts();
+    }
+  });
+
+  document.getElementById("logout").addEventListener("click", async () => {
+    await supabase.auth.signOut();
+    window.location.href = "login.html";
+  });
+
+  checkUser();
+</script>
