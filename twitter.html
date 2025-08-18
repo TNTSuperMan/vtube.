@@ -3,16 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <title>VTube - タイムライン</title>
-  <script src="https://unpkg.com/@supabase/supabase-js"></script>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <style>
     body { font-family: sans-serif; max-width: 600px; margin: auto; }
-    .post { border: 1px solid #ddd; padding: 10px; margin: 10px 0; border-radius: 10px; }
-    textarea { width: 100%; padding: 8px; }
-    img.post-image { max-width: 100%; border-radius: 10px; margin-top: 5px; }
+    .post { border: 1px solid #ddd; border-radius: 10px; padding: 10px; margin: 10px 0; }
+    .post img.post-image { max-width: 100%; border-radius: 10px; margin-top: 5px; }
   </style>
 </head>
 <body>
-  <h1>📢 VTube タイムライン</h1>
+  <h1>📢 VTube - タイムライン</h1>
 
   <!-- 投稿フォーム -->
   <textarea id="postContent" placeholder="いまどうしてる？"></textarea><br>
@@ -23,50 +22,43 @@
   <div id="timeline"></div>
 
   <script>
-    // Supabase 初期化
-    const supabaseUrl = "https://yvxynwjfngvqwjjsqdma.supabase.co";
-    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU";
-    const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+    const supabase = window.supabase.createClient(
+      "https://yvxynwjfngvqwjjsqdma.supabase.co",
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU"
+    );
 
     let currentUser = null;
 
-    // ログイン状態チェック
+    // 🔑 ログイン確認
     async function checkLogin() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        alert("ログインしてください");
-        location.href = "index.html"; // ホームに戻す
-      } else {
-        currentUser = user;
-        loadPosts();
+        alert("ログインしてください！");
+        window.location.href = "login.html";
       }
+      currentUser = user;
     }
 
-    // 投稿ボタン処理
+    // 📝 投稿処理
     document.getElementById("postButton").addEventListener("click", async () => {
       const content = document.getElementById("postContent").value.trim();
       const fileInput = document.getElementById("postImage");
       let imageUrl = null;
 
-      // 画像が選ばれてたらアップロード
+      // 画像アップロード
       if (fileInput.files.length > 0) {
         const file = fileInput.files[0];
         const filePath = `${currentUser.id}/${Date.now()}-${file.name}`;
-
         const { error: uploadError } = await supabase.storage
           .from("post-images")
           .upload(filePath, file);
-
         if (uploadError) {
           alert("画像アップロード失敗: " + uploadError.message);
           return;
         }
-
-        // 公開URLを取得
         const { data: publicUrlData } = supabase.storage
           .from("post-images")
           .getPublicUrl(filePath);
-
         imageUrl = publicUrlData.publicUrl;
       }
 
@@ -76,7 +68,6 @@
         content,
         image_url: imageUrl
       });
-
       if (!error) {
         document.getElementById("postContent").value = "";
         document.getElementById("postImage").value = "";
@@ -84,13 +75,15 @@
       }
     });
 
-    // タイムライン表示
+    // 📥 タイムライン読み込み
     async function loadPosts() {
       const { data: posts } = await supabase
         .from("posts")
         .select(`
-          content, created_at, image_url,
-          profiles:user_id (username, avatar_url)
+          id, content, created_at, image_url,
+          profiles:user_id (username, avatar_url),
+          likes (user_id),
+          comments (id, content, created_at, profiles:user_id (username, avatar_url))
         `)
         .order("created_at", { ascending: false });
 
@@ -100,6 +93,7 @@
       posts.forEach(post => {
         const avatar = post.profiles?.avatar_url || "https://placehold.jp/50x50.png";
         const username = post.profiles?.username || "名無し";
+        const likeCount = post.likes?.length || 0;
 
         const div = document.createElement("div");
         div.className = "post";
@@ -111,13 +105,83 @@
           </div>
           <p>${post.content}</p>
           ${post.image_url ? `<img src="${post.image_url}" class="post-image">` : ""}
+          <div>
+            <button onclick="likePost('${post.id}')">❤️ ${likeCount}</button>
+            <button onclick="showComments('${post.id}')">💬 コメント</button>
+          </div>
           <small>${new Date(post.created_at).toLocaleString()}</small>
+          <div id="comments-${post.id}" style="margin-left:20px;"></div>
         `;
         timeline.appendChild(div);
       });
     }
 
-    checkLogin();
+    // ❤️ いいね処理
+    async function likePost(postId) {
+      const { error } = await supabase.from("likes").insert({
+        user_id: currentUser.id,
+        post_id: postId
+      });
+      if (error) {
+        console.log("いいね済みかも:", error.message);
+      }
+      loadPosts();
+    }
+
+    // 💬 コメント表示
+    async function showComments(postId) {
+      const commentBox = document.getElementById(`comments-${postId}`);
+      commentBox.innerHTML = `
+        <input type="text" id="comment-input-${postId}" placeholder="コメントを書く">
+        <button onclick="addComment('${postId}')">送信</button>
+        <div id="comment-list-${postId}"></div>
+      `;
+      loadComments(postId);
+    }
+
+    // 💬 コメント追加
+    async function addComment(postId) {
+      const input = document.getElementById(`comment-input-${postId}`);
+      const content = input.value.trim();
+      if (!content) return;
+      await supabase.from("comments").insert({
+        user_id: currentUser.id,
+        post_id: postId,
+        content
+      });
+      input.value = "";
+      loadComments(postId);
+    }
+
+    // 💬 コメント読み込み
+    async function loadComments(postId) {
+      const { data: comments } = await supabase
+        .from("comments")
+        .select(`
+          content, created_at,
+          profiles:user_id (username, avatar_url)
+        `)
+        .eq("post_id", postId)
+        .order("created_at", { ascending: true });
+
+      const list = document.getElementById(`comment-list-${postId}`);
+      list.innerHTML = "";
+      comments.forEach(c => {
+        const avatar = c.profiles?.avatar_url || "https://placehold.jp/30x30.png";
+        const username = c.profiles?.username || "名無し";
+        const div = document.createElement("div");
+        div.style.margin = "5px 0";
+        div.innerHTML = `
+          <img src="${avatar}" style="width:20px; height:20px; border-radius:50%; vertical-align:middle;">
+          <strong>${username}</strong>：${c.content}
+          <small style="color:gray;">(${new Date(c.created_at).toLocaleString()})</small>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    // 起動時
+    checkLogin().then(loadPosts);
   </script>
 </body>
 </html>
