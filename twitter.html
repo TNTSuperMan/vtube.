@@ -43,6 +43,12 @@
       const fileInput = document.getElementById("image");
       let image_url = null;
 
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert("ログインしてください！");
+        return;
+      }
+
       // 画像アップロード
       if (fileInput.files.length > 0) {
         const file = fileInput.files[0];
@@ -60,7 +66,7 @@
 
       // 投稿保存
       const { error } = await supabase.from("posts").insert([
-        { content, image_url }
+        { content, image_url, user_id: user.id }
       ]);
 
       if (error) {
