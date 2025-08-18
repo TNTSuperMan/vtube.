@@ -1,117 +1,61 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <title>VTube - タイムライン</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <meta charset="UTF-8">
+  <title>Vtube タイムライン</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-  <h1>VTube タイムライン</h1>
+  <h2>タイムライン</h2>
+  <div id="posts"></div>
 
-  <!-- 投稿フォーム -->
-  <div>
-    <textarea id="postContent" placeholder="いまどうしてる？"></textarea>
-    <button onclick="createPost()">投稿</button>
-  </div>
-
-  <!-- タイムライン表示 -->
-  <div id="timeline"></div>
+  <button onclick="logout()">ログアウト</button>
 
   <script>
-    // Supabase 初期化
-    const supabaseUrl = "https://yvxynwjfngvqwjjsqdma.supabase.co";
-    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU";
-    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+    const supabase = window.supabase.createClient(
+      "https://yvxynwjfngvqwjjsqdma.supabase.co",
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU"
+    );
 
-    let currentUser = null;
-
-    // 🔹 プロフィール自動作成
-    async function ensureUserProfile(user) {
-      const { data, error } = await supabase
-        .from("users")
-        .select("id")
-        .eq("id", user.id)
-        .single();
-
-      if (!data) {
-        await supabase.from("users").insert([
-          {
-            id: user.id,
-            username: "名無し",
-            avatar_url: "",
-            bio: "",
-            header_url: ""
-          }
-        ]);
-      }
-    }
-
-    // 🔹 ログインチェック
-    async function checkLogin() {
-      const { data, error } = await supabase.auth.getUser();
-      if (data.user) {
-        currentUser = data.user;
-        await ensureUserProfile(currentUser);
-        loadTimeline();
-      } else {
-        window.location.href = "login.html";
-      }
-    }
-
-    // 🔹 投稿作成
-    async function createPost() {
-      const content = document.getElementById("postContent").value;
-      if (!content) return;
-
-      const { error } = await supabase.from("posts").insert([
-        {
-          user_id: currentUser.id,
-          content: content
-        }
-      ]);
-
-      if (!error) {
-        document.getElementById("postContent").value = "";
-        loadTimeline();
-      }
-    }
-
-    // 🔹 タイムライン読み込み
-    async function loadTimeline() {
-      const { data, error } = await supabase
-        .from("posts")
-        .select(`
-          id,
-          content,
-          created_at,
-          users (
-            username,
-            avatar_url
-          )
-        `)
-        .order("created_at", { ascending: false });
-
-      const timeline = document.getElementById("timeline");
-      timeline.innerHTML = "";
-
-      if (data) {
-        data.forEach(post => {
-          const div = document.createElement("div");
-          div.innerHTML = `
-            <div style="border:1px solid #ccc; margin:10px; padding:10px;">
-              <img src="${post.users?.avatar_url || "https://via.placeholder.com/40"}" width="40" style="border-radius:50%">
-              <b>${post.users?.username || "名無し"}</b><br>
-              ${post.content}<br>
-              <small>${new Date(post.created_at).toLocaleString()}</small>
-            </div>
-          `;
-          timeline.appendChild(div);
-        });
-      }
-    }
-
-    // 実行開始
+    // 🔒 ページを開いたときにセッション確認
     checkLogin();
+
+    async function checkLogin() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        // 未ログイン → ログインページへ
+        window.location.href = "login.html";
+      } else {
+        console.log("ログイン中:", session.user.email);
+        loadPosts();
+      }
+    }
+
+    // 🔓 ログアウト処理
+    async function logout() {
+      await supabase.auth.signOut();
+      window.location.href = "login.html";
+    }
+
+    // 📝 タイムライン読み込み
+    async function loadPosts() {
+      const { data, error } = await supabase
+        .from("posts")   // ← あなたが作ったテーブル名
+        .select("id, content, created_at");
+
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      const postsDiv = document.getElementById("posts");
+      postsDiv.innerHTML = data.map(p =>
+        `<div>
+           <p>${p.content}</p>
+           <small>${p.created_at}</small>
+         </div>`
+      ).join("");
+    }
   </script>
 </body>
 </html>
