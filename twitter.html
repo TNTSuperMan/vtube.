@@ -31,13 +31,13 @@
       margin-bottom: 15px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     }
-    .post-box textarea {
+    .post-box input, .post-box textarea {
       width: 100%;
       border: none;
       border-radius: 12px;
       padding: 10px;
       font-size: 14px;
-      resize: none;
+      margin-bottom: 8px;
       outline: none;
       background: #f9f9f9;
     }
@@ -49,7 +49,6 @@
       padding: 8px 18px;
       cursor: pointer;
       font-size: 14px;
-      margin-top: 8px;
       transition: 0.3s;
     }
     .btn:hover {
@@ -97,11 +96,13 @@
       color: #333;
     }
   </style>
+  <script src="https://unpkg.com/@supabase/supabase-js"></script>
 </head>
 <body>
-  <header>🐰 タイムライン　🐰</header>
+  <header>🐰 VTube Timeline</header>
   <div class="container">
     <div class="post-box">
+      <input id="username" placeholder="ユーザー名を入力してね">
       <textarea id="postContent" placeholder="いまどうしてる？"></textarea>
       <button class="btn" onclick="addPost()">投稿する</button>
     </div>
@@ -109,51 +110,84 @@
   </div>
 
   <script>
-    // アイコン候補（好きなの増やしてもOK！）
-    const avatars = ["🐰"];
+    // Supabaseクライアント設定
+    const SUPABASE_URL = "https://YOUR_PROJECT.supabase.co";  // ←自分のURL
+    const SUPABASE_KEY = "YOUR_ANON_KEY"; // ←Anon key
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // ランダムでアイコンを決める
+    const avatars = ["🐰"];
     function getRandomAvatar() {
       return avatars[Math.floor(Math.random() * avatars.length)];
     }
 
-    // 投稿処理
-    function addPost() {
+    // 投稿する
+    async function addPost() {
+      const username = document.getElementById("username").value || "名無し";
       const content = document.getElementById("postContent").value;
       if (!content) return;
-      const timeline = document.getElementById("timeline");
-      const postDiv = document.createElement("div");
-      postDiv.className = "post";
 
-      const avatarDiv = document.createElement("div");
-      avatarDiv.className = "avatar";
-      avatarDiv.textContent = getRandomAvatar();
+      // Supabaseに保存
+      let { data, error } = await supabase.from("posts").insert([
+        { username: username, content: content }
+      ]);
 
-      const postContentDiv = document.createElement("div");
-      postContentDiv.className = "post-content";
-
-      const usernameSpan = document.createElement("span");
-      usernameSpan.className = "username";
-      usernameSpan.textContent = "username"; // ←ここをSupabaseのユーザー名に差し替え可
-
-      const dateSpan = document.createElement("span");
-      dateSpan.className = "date";
-      dateSpan.textContent = new Date().toLocaleString();
-
-      const contentDiv = document.createElement("div");
-      contentDiv.className = "content";
-      contentDiv.textContent = content;
-
-      postContentDiv.appendChild(usernameSpan);
-      postContentDiv.appendChild(dateSpan);
-      postContentDiv.appendChild(contentDiv);
-
-      postDiv.appendChild(avatarDiv);
-      postDiv.appendChild(postContentDiv);
-      timeline.prepend(postDiv);
+      if (error) {
+        alert("投稿エラー: " + error.message);
+        return;
+      }
 
       document.getElementById("postContent").value = "";
+      loadPosts();
     }
+
+    // 投稿を読み込む
+    async function loadPosts() {
+      let { data: posts, error } = await supabase
+        .from("posts")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      const timeline = document.getElementById("timeline");
+      timeline.innerHTML = "";
+      posts.forEach(post => {
+        const postDiv = document.createElement("div");
+        postDiv.className = "post";
+
+        const avatarDiv = document.createElement("div");
+        avatarDiv.className = "avatar";
+        avatarDiv.textContent = getRandomAvatar();
+
+        const postContentDiv = document.createElement("div");
+        postContentDiv.className = "post-content";
+
+        const usernameSpan = document.createElement("span");
+        usernameSpan.className = "username";
+        usernameSpan.textContent = post.username;
+
+        const dateSpan = document.createElement("span");
+        dateSpan.className = "date";
+        dateSpan.textContent = new Date(post.created_at).toLocaleString();
+
+        const contentDiv = document.createElement("div");
+        contentDiv.className = "content";
+        contentDiv.textContent = post.content;
+
+        postContentDiv.appendChild(usernameSpan);
+        postContentDiv.appendChild(dateSpan);
+        postContentDiv.appendChild(contentDiv);
+
+        postDiv.appendChild(avatarDiv);
+        postDiv.appendChild(postContentDiv);
+        timeline.appendChild(postDiv);
+      });
+    }
+
+    loadPosts(); // ページ読み込み時にタイムライン更新
   </script>
 </body>
 </html>
