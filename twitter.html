@@ -2,10 +2,15 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>Vtube｜タイムライン</title>
+  <title>Vtube タイムライン</title>
   <script src="https://unpkg.com/@supabase/supabase-js"></script>
   <style>
     body { font-family: sans-serif; background: #f5f5f5; padding: 20px; }
+    h1 { text-align: center; }
+    #postForm { background: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);}
+    #postForm textarea { width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ddd; resize: vertical; }
+    #postForm input[type="file"] { margin-top: 10px; }
+    #postForm button { margin-top: 10px; padding: 10px 20px; border: none; border-radius: 5px; background: #1da1f2; color: white; font-weight: bold; cursor: pointer; }
     .post { background: white; border-radius: 10px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);}
     .post img { max-width: 100%; border-radius: 10px; margin-top: 10px; }
     .user { font-weight: bold; margin-bottom: 5px; }
@@ -13,7 +18,16 @@
   </style>
 </head>
 <body>
-  <h1>タイムライン</h1>
+  <h1>Vtube</h1>
+
+  <!-- 投稿フォーム -->
+  <div id="postForm">
+    <textarea id="content" rows="3" placeholder="いまどうしてる？"></textarea><br>
+    <input type="file" id="image"><br>
+    <button onclick="createPost()">投稿する</button>
+  </div>
+
+  <!-- タイムライン -->
   <div id="posts"></div>
 
   <script>
@@ -21,6 +35,44 @@
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU";
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+    const BUCKET = "posts"; // Supabase で作ったバケット名
+
+    // 投稿作成
+    async function createPost() {
+      const content = document.getElementById("content").value;
+      const fileInput = document.getElementById("image");
+      let image_url = null;
+
+      // 画像アップロード
+      if (fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        const fileName = `${Date.now()}_${file.name}`;
+        const { error: uploadError } = await supabase.storage.from(BUCKET).upload(fileName, file);
+
+        if (uploadError) {
+          alert("画像アップロード失敗: " + uploadError.message);
+          return;
+        }
+
+        const { data } = supabase.storage.from(BUCKET).getPublicUrl(fileName);
+        image_url = data.publicUrl;
+      }
+
+      // 投稿保存
+      const { error } = await supabase.from("posts").insert([
+        { content, image_url }
+      ]);
+
+      if (error) {
+        alert("投稿失敗: " + error.message);
+      } else {
+        document.getElementById("content").value = "";
+        fileInput.value = "";
+        loadPosts(); // 再読み込み
+      }
+    }
+
+    // タイムライン読み込み
     async function loadPosts() {
       const { data, error } = await supabase
         .from("posts")
@@ -28,7 +80,7 @@
         .order("created_at", { ascending: false });
 
       if (error) {
-        alert("エラー: " + JSON.stringify(error));
+        alert("読み込みエラー: " + error.message);
         return;
       }
 
@@ -50,6 +102,7 @@
       });
     }
 
+    // 初期ロード
     loadPosts();
   </script>
 </body>
