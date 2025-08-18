@@ -1,71 +1,123 @@
-<script>
-  const supabase = supabase.createClient(
-    "https://yvxynwjfngvqwjjsqdma.supabase.co",
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU"
-  );
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>VTube - タイムライン</title>
+  <script src="https://unpkg.com/@supabase/supabase-js"></script>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: auto; }
+    .post { border: 1px solid #ddd; padding: 10px; margin: 10px 0; border-radius: 10px; }
+    textarea { width: 100%; padding: 8px; }
+    img.post-image { max-width: 100%; border-radius: 10px; margin-top: 5px; }
+  </style>
+</head>
+<body>
+  <h1>📢 VTube タイムライン</h1>
 
-  let currentUser;
+  <!-- 投稿フォーム -->
+  <textarea id="postContent" placeholder="いまどうしてる？"></textarea><br>
+  <input type="file" id="postImage" accept="image/*"><br>
+  <button id="postButton">投稿</button>
 
-  async function checkUser() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      window.location.href = "login.html";
-    } else {
-      currentUser = user;
-      loadPosts();
+  <h2>タイムライン</h2>
+  <div id="timeline"></div>
+
+  <script>
+    // Supabase 初期化
+    const supabaseUrl = "https://yvxynwjfngvqwjjsqdma.supabase.co";
+    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU";
+    const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+    let currentUser = null;
+
+    // ログイン状態チェック
+    async function checkLogin() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert("ログインしてください");
+        location.href = "index.html"; // ホームに戻す
+      } else {
+        currentUser = user;
+        loadPosts();
+      }
     }
-  }
 
-  async function loadPosts() {
-    const { data: posts, error } = await supabase
-      .from("posts")
-      .select(`
-        content, created_at,
-        profiles:user_id (username, avatar_url)
-      `)
-      .order("created_at", { ascending: false });
+    // 投稿ボタン処理
+    document.getElementById("postButton").addEventListener("click", async () => {
+      const content = document.getElementById("postContent").value.trim();
+      const fileInput = document.getElementById("postImage");
+      let imageUrl = null;
 
-    const timeline = document.getElementById("timeline");
-    timeline.innerHTML = "";
+      // 画像が選ばれてたらアップロード
+      if (fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        const filePath = `${currentUser.id}/${Date.now()}-${file.name}`;
 
-    posts.forEach(post => {
-      const div = document.createElement("div");
-      div.className = "post";
+        const { error: uploadError } = await supabase.storage
+          .from("post-images")
+          .upload(filePath, file);
 
-      const avatar = post.profiles?.avatar_url || "https://placehold.jp/50x50.png";
-      const username = post.profiles?.username || "名無し";
+        if (uploadError) {
+          alert("画像アップロード失敗: " + uploadError.message);
+          return;
+        }
 
-      div.innerHTML = `
-        <div style="display:flex; align-items:center; gap:10px;">
-          <img src="${avatar}" style="width:40px; height:40px; border-radius:50%;">
-          <strong>${username}</strong>
-        </div>
-        <p>${post.content}</p>
-        <small>${new Date(post.created_at).toLocaleString()}</small>
-      `;
-      timeline.appendChild(div);
+        // 公開URLを取得
+        const { data: publicUrlData } = supabase.storage
+          .from("post-images")
+          .getPublicUrl(filePath);
+
+        imageUrl = publicUrlData.publicUrl;
+      }
+
+      // 投稿保存
+      const { error } = await supabase.from("posts").insert({
+        user_id: currentUser.id,
+        content,
+        image_url: imageUrl
+      });
+
+      if (!error) {
+        document.getElementById("postContent").value = "";
+        document.getElementById("postImage").value = "";
+        loadPosts();
+      }
     });
-  }
 
-  document.getElementById("postButton").addEventListener("click", async () => {
-    const content = document.getElementById("postContent").value.trim();
-    if (content === "") return;
+    // タイムライン表示
+    async function loadPosts() {
+      const { data: posts } = await supabase
+        .from("posts")
+        .select(`
+          content, created_at, image_url,
+          profiles:user_id (username, avatar_url)
+        `)
+        .order("created_at", { ascending: false });
 
-    const { error } = await supabase.from("posts").insert({
-      user_id: currentUser.id,
-      content
-    });
+      const timeline = document.getElementById("timeline");
+      timeline.innerHTML = "";
 
-    if (!error) {
-      document.getElementById("postContent").value = "";
-      loadPosts();
+      posts.forEach(post => {
+        const avatar = post.profiles?.avatar_url || "https://placehold.jp/50x50.png";
+        const username = post.profiles?.username || "名無し";
+
+        const div = document.createElement("div");
+        div.className = "post";
+
+        div.innerHTML = `
+          <div style="display:flex; align-items:center; gap:10px;">
+            <img src="${avatar}" style="width:40px; height:40px; border-radius:50%;">
+            <strong>${username}</strong>
+          </div>
+          <p>${post.content}</p>
+          ${post.image_url ? `<img src="${post.image_url}" class="post-image">` : ""}
+          <small>${new Date(post.created_at).toLocaleString()}</small>
+        `;
+        timeline.appendChild(div);
+      });
     }
-  });
 
-  document.getElementById("logout").addEventListener("click", async () => {
-    await supabase.auth.signOut();
-    window.location.href = "login.html";
-  });
-
-  checkUser();
-</script>
+    checkLogin();
+  </script>
+</body>
+</html>
