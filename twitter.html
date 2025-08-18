@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>Vtube｜タイムライン</title>
+  <title>Vtube タイムライン</title>
   <script src="https://unpkg.com/@supabase/supabase-js"></script>
   <style>
     body { font-family: sans-serif; background: #f5f5f5; padding: 20px; }
@@ -10,38 +10,27 @@
     .post img { max-width: 100%; border-radius: 10px; margin-top: 10px; }
     .user { font-weight: bold; margin-bottom: 5px; }
     .time { color: #666; font-size: 12px; }
-    #debug { background: #222; color: #0f0; padding: 10px; font-size: 12px; white-space: pre-wrap; margin-top: 20px;}
   </style>
 </head>
 <body>
-  <h1>Vtube｜タイムライン</h1>
+  <h1>Vtube タイムライン</h1>
   <div id="posts"></div>
-
-  <h2>デバッグログ</h2>
-  <div id="debug">読み込み中...</div>
 
   <script>
     const SUPABASE_URL = "https://yvxynwjfngvqwjjsqdma.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU";
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    function logDebug(message) {
-      document.getElementById("debug").textContent += "\n" + message;
-    }
-
     async function loadPosts() {
-      logDebug("投稿データを取得します...");
       const { data, error } = await supabase
         .from("posts")
         .select("*")
         .order("created_at", { ascending: false });
 
       if (error) {
-        logDebug("エラー: " + JSON.stringify(error));
+        alert("エラー: " + JSON.stringify(error));
         return;
       }
-
-      logDebug("取得成功: " + JSON.stringify(data, null, 2));
 
       const container = document.getElementById("posts");
       container.innerHTML = "";
