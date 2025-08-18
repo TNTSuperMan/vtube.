@@ -1,63 +1,58 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>通知</title>
+  <title>Vtube｜タイムライン</title>
   <script src="https://unpkg.com/@supabase/supabase-js"></script>
+  <style>
+    body { font-family: sans-serif; background: #f5f5f5; padding: 20px; }
+    .post { background: white; border-radius: 10px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);}
+    .post img { max-width: 100%; border-radius: 10px; margin-top: 10px; }
+    .user { font-weight: bold; margin-bottom: 5px; }
+    .time { color: #666; font-size: 12px; }
+  </style>
 </head>
 <body>
-  <h1>通知一覧</h1>
-  <div id="notifications"></div>
+  <h1>✨Vtube｜タイムライン</h1>
+  <div id="posts"></div>
 
   <script>
-    const supabaseUrl = "https://yvxynwjfngvqwjjsqdma.supabase.co";
-    const supabaseKey = "YOUR_KEY_HERE"; // ←いずみのキー貼ってね
-    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
-    let currentUser = null;
+    const SUPABASE_URL = "https://yvxynwjfngvqwjjsqdma.supabase.co"; // ← いずみのURL
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU";
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    async function checkLogin() {
-      const { data } = await supabase.auth.getUser();
-      if (!data.user) {
-        window.location.href = "login.html";
-      } else {
-        currentUser = data.user;
-      }
-    }
-
-    async function loadNotifications() {
+    async function loadPosts() {
       const { data, error } = await supabase
-        .from("notifications")
-        .select("*, from_user_id, posts(content)")
-        .eq("user_id", currentUser.id)
+        .from("posts")
+        .select("*")   // profilesはまだ外す
         .order("created_at", { ascending: false });
 
-      if (!error) {
-        const div = document.getElementById("notifications");
-        div.innerHTML = "";
-        data.forEach(n => {
-          let text = "";
-          if (n.type === "like") {
-            text = `ユーザー${n.from_user_id} があなたの投稿にいいねしました`;
-          } else if (n.type === "comment") {
-            text = `ユーザー${n.from_user_id} があなたの投稿にコメントしました`;
-          }
-          div.innerHTML += `<p>${text}</p>`;
-        });
+      if (error) {
+        console.error("エラー:", error);
+        return;
       }
+
+      console.log("postsデータ:", data); // デバッグ用に出力
+
+      const container = document.getElementById("posts");
+      container.innerHTML = "";
+
+      data.forEach(post => {
+        const div = document.createElement("div");
+        div.className = "post";
+
+        div.innerHTML = `
+          <div class="user">${post.user_id || "名無し"}</div>
+          <div>${post.content || ""}</div>
+          ${post.image_url ? `<img src="${post.image_url}">` : ""}
+          <div class="time">${new Date(post.created_at).toLocaleString()}</div>
+        `;
+
+        container.appendChild(div);
+      });
     }
 
-    async function markAsRead() {
-      await supabase
-        .from("notifications")
-        .update({ read: true })
-        .eq("user_id", currentUser.id)
-        .eq("read", false);
-    }
-
-    checkLogin().then(async () => {
-      await loadNotifications();
-      await markAsRead();
-    });
+    loadPosts();
   </script>
 </body>
 </html>
