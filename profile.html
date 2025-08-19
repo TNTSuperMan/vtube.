@@ -6,100 +6,170 @@
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <style>
     body {
-      font-family: "Comic Sans MS", "Noto Sans JP", sans-serif;
-      background: linear-gradient(135deg, #ffe6f0, #e6f7ff);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      margin: 0;
-    }
-    .box {
-      background: #fff;
-      padding: 30px;
-      border-radius: 20px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      width: 320px;
+      font-family: "Hiragino Maru Gothic ProN", "Arial", sans-serif;
+      background: linear-gradient(135deg, #ffe4f0, #d0f0ff);
       text-align: center;
+      padding: 40px;
     }
-    h2 {
-      margin-bottom: 20px;
-      color: #ff66aa;
+    .card {
+      max-width: 400px;
+      margin: auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 20px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
     }
-    input, textarea, button {
+    .title {
+      font-size: 22px;
+      margin-bottom: 15px;
+      color: #e75480;
+    }
+    label {
+      display: block;
+      margin-top: 15px;
+      font-weight: bold;
+      color: #333;
+      text-align: left;
+    }
+    input, textarea {
       width: 100%;
       padding: 10px;
-      margin: 8px 0;
-      border-radius: 12px;
+      margin-top: 5px;
+      border-radius: 10px;
       border: 1px solid #ccc;
       font-size: 14px;
     }
-    textarea {
-      resize: none;
-      height: 80px;
-    }
     button {
-      background: #ff99cc;
+      margin-top: 20px;
+      background: #ff69b4;
       color: white;
       border: none;
+      padding: 12px 20px;
+      border-radius: 25px;
+      font-size: 16px;
       cursor: pointer;
-      font-weight: bold;
+      transition: background 0.3s;
     }
     button:hover {
-      background: #ff66aa;
+      background: #ff85c1;
+    }
+    img {
+      margin-top: 15px;
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid #ff69b4;
     }
   </style>
 </head>
 <body>
-  <div class="box">
-    <h2>プロフィール編集</h2>
+  <div class="card">
+    <h2 class="title">プロフィール編集</h2>
+
+    <label>ユーザー名</label>
     <input type="text" id="username" placeholder="ユーザー名">
-    <textarea id="bio" placeholder="自己紹介を入力してね"></textarea>
+
+    <label>自己紹介</label>
+    <textarea id="bio" placeholder="自己紹介を書いてね"></textarea>
+
+    <label>アイコン画像</label>
+    <input type="file" id="avatar" accept="image/*">
+    <img id="avatarPreview" src="" alt="プレビュー">
+
     <button onclick="saveProfile()">保存</button>
   </div>
 
   <script>
-    const supabaseUrl = "https://yvxynwjfngvqwjjsqdma.supabase.co"; // ←差し替え
-    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU"; // ←差し替え
-    const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+    const supabaseClient = supabase.createClient(
+      "https://YOUR_PROJECT.supabase.co", // ←自分のSupabase URL
+      "YOUR_ANON_KEY" // ←自分のanonキー
+    );
 
     async function saveProfile() {
-      const { data: { user } } = await supabaseClient.auth.getUser();
-      if (!user) {
+      const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+      if (userError || !user) {
         alert("ログインしてください");
+        location.href = "login.html";
         return;
       }
 
       const username = document.getElementById("username").value;
       const bio = document.getElementById("bio").value;
+      const file = document.getElementById("avatar").files[0];
+
+      let avatar_url = null;
+
+      if (file) {
+        const fileName = `${user.id}_${Date.now()}.${file.name.split(".").pop()}`;
+        const { error: uploadError } = await supabaseClient
+          .storage
+          .from("avatars") // ← Supabaseに「avatars」バケットを作っておく
+          .upload(fileName, file, { upsert: true });
+
+        if (uploadError) {
+          alert("アップロード失敗: " + uploadError.message);
+          return;
+        }
+
+        // 公開URL取得
+        const { data } = supabaseClient
+          .storage
+          .from("avatars")
+          .getPublicUrl(fileName);
+
+        avatar_url = data.publicUrl;
+      }
 
       const { error } = await supabaseClient
         .from("profiles")
-        .upsert({ user_id: user.id, username, bio });
+        .upsert(
+          {
+            user_id: user.id,
+            username,
+            bio,
+            avatar_url
+          },
+          { onConflict: ["user_id"] }
+        );
 
       if (error) {
         alert("保存エラー: " + error.message);
       } else {
-        alert("プロフィール更新しました！");
+        alert("プロフィールを更新しました！");
       }
     }
 
-    // 初期表示でプロフィール読み込み
-    (async () => {
+    // ページ読み込み時にプロフィールを取得
+    window.onload = async () => {
       const { data: { user } } = await supabaseClient.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        location.href = "login.html";
+        return;
+      }
 
-      const { data } = await supabaseClient
+      const { data, error } = await supabaseClient
         .from("profiles")
-        .select("username, bio")
+        .select("*")
         .eq("user_id", user.id)
         .single();
 
       if (data) {
         document.getElementById("username").value = data.username || "";
         document.getElementById("bio").value = data.bio || "";
+        if (data.avatar_url) {
+          document.getElementById("avatarPreview").src = data.avatar_url;
+        }
       }
-    })();
+    };
+
+    // プレビュー
+    document.getElementById("avatar").addEventListener("change", (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        document.getElementById("avatarPreview").src = URL.createObjectURL(file);
+      }
+    });
   </script>
 </body>
 </html>
