@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>VTube - プロフィール登録</title>
+  <title>VTube - プロフィール設定</title>
   <style>
     body {
       font-family: "Comic Sans MS", "Noto Sans JP", sans-serif;
@@ -50,11 +50,11 @@
   </style>
 </head>
 <body>
-  <header>プロフィール登録</header>
+  <header>プロフィール設定</header>
   <div class="container">
-    <h2>ユーザー名を登録</h2>
+    <h2>ユーザー名を設定</h2>
     <input type="text" id="username" placeholder="ユーザー名を入力してください">
-    <button onclick="saveProfile()">登録</button>
+    <button onclick="saveProfile()">保存</button>
   </div>
 
   <script src="https://unpkg.com/@supabase/supabase-js"></script>
@@ -64,17 +64,11 @@
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     async function saveProfile() {
-  const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-  console.log("ログインユーザー:", user);
-  console.log("エラー:", userError);
-
-  if (userError || !user) {
-    alert("ログインしていません！");
-    return;
-  }
-  // あとは同じ処理
-}
-
+      const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+      if (userError || !user) {
+        alert("ログインしていません！");
+        return;
+      }
 
       const username = document.getElementById("username").value;
       if (!username) {
