@@ -4,26 +4,75 @@
   <meta charset="UTF-8">
   <title>VTube - ホーム</title>
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      font-family: "Comic Sans MS", "Noto Sans JP", sans-serif;
+      background: linear-gradient(135deg, #ffe6f0, #e6f7ff);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .box {
+      background: #fff;
+      padding: 30px;
+      border-radius: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      width: 350px;
+      text-align: center;
+    }
+    h2 {
+      margin-bottom: 15px;
+      color: #ff66aa;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 20px;
+      background: linear-gradient(90deg, #ff99cc, #66ccff);
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    #welcome {
+      margin-bottom: 15px;
+      font-size: 16px;
+      color: #555;
+    }
+  </style>
 </head>
 <body>
-  <h1>ホーム</h1>
-  <div id="user-info"></div>
-  <button onclick="logout()">ログアウト</button>
+  <div class="box">
+    <h2>ホーム</h2>
+    <div id="welcome"></div>
+    <button onclick="gotoProfile()">プロフィール設定へ</button>
+    <button onclick="logout()">ログアウト</button>
+  </div>
 
   <script>
     const supabaseUrl = "https://yvxynwjfngvqwjjsqdma.supabase.co";
-    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU"; 
+    const supabaseKey = "YOUR_ANON_KEY"; 
     const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
+    let currentUser = null;
+
+    // ログイン確認
     async function checkAuth() {
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (!session) {
-        location.href = "login.html"; // 未ログインなら戻す
+        location.href = "login.html";
         return;
       }
+      currentUser = session.user;
+      document.getElementById("welcome").innerText =
+        "ようこそ、" + currentUser.email + " さん！";
+    }
 
-      document.getElementById("user-info").innerText =
-        "ログイン中: " + session.user.email;
+    function gotoProfile() {
+      location.href = "profile.html";
     }
 
     async function logout() {
