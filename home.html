@@ -1,97 +1,37 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <title>VTube - プロフィール設定</title>
-  <style>
-    body {
-      font-family: "Comic Sans MS", "Noto Sans JP", sans-serif;
-      background: linear-gradient(135deg, #ffe6f0, #e6f7ff);
-      margin: 0;
-      padding: 0;
-    }
-    header {
-      background: #ff99cc;
-      color: white;
-      text-align: center;
-      padding: 15px;
-      font-size: 22px;
-      font-weight: bold;
-    }
-    .container {
-      max-width: 500px;
-      margin: 40px auto;
-      background: #fff;
-      padding: 20px;
-      border-radius: 16px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    }
-    input {
-      width: 100%;
-      padding: 10px;
-      margin: 10px 0;
-      border-radius: 10px;
-      border: 1px solid #ccc;
-      font-size: 16px;
-    }
-    button {
-      background: linear-gradient(90deg, #ff99cc, #66ccff);
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      border-radius: 20px;
-      font-size: 16px;
-      cursor: pointer;
-      transition: 0.3s;
-    }
-    button:hover {
-      transform: scale(1.05);
-    }
-  </style>
+  <meta charset="UTF-8">
+  <title>VTube - ホーム</title>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 </head>
 <body>
-  <header>プロフィール設定</header>
-  <div class="container">
-    <h2>ユーザー名を設定</h2>
-    <input type="text" id="username" placeholder="ユーザー名を入力してください">
-    <button onclick="saveProfile()">保存</button>
-  </div>
+  <h1>ホーム</h1>
+  <div id="user-info"></div>
+  <button onclick="logout()">ログアウト</button>
 
-  <script src="https://unpkg.com/@supabase/supabase-js"></script>
   <script>
-    const SUPABASE_URL = "https://YOUR-PROJECT.supabase.co";
-    const SUPABASE_KEY = "YOUR-ANON-KEY";
-    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const supabaseUrl = "https://yvxynwjfngvqwjjsqdma.supabase.co";
+    const supabaseKey = "YOUR_ANON_KEY"; 
+    const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
-    async function saveProfile() {
-      const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-      if (userError || !user) {
-        alert("ログインしていません！");
+    async function checkAuth() {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session) {
+        location.href = "login.html"; // 未ログインなら戻す
         return;
       }
 
-      const username = document.getElementById("username").value;
-      if (!username) {
-        alert("ユーザー名を入力してください！");
-        return;
-      }
-
-      // profiles に upsert (存在すれば更新、なければ作成)
-      const { error } = await supabaseClient
-        .from("profiles")
-        .upsert({
-          user_id: user.id,
-          username: username
-        });
-
-      if (error) {
-        console.error("保存エラー:", error);
-        alert("プロフィール保存に失敗しました");
-      } else {
-        alert("プロフィールを保存しました！");
-        window.location.href = "twitter.html"; // 保存後にタイムラインへ
-      }
+      document.getElementById("user-info").innerText =
+        "ログイン中: " + session.user.email;
     }
+
+    async function logout() {
+      await supabaseClient.auth.signOut();
+      location.href = "login.html";
+    }
+
+    checkAuth();
   </script>
 </body>
 </html>
