@@ -64,11 +64,17 @@
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     async function saveProfile() {
-      const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-      if (userError || !user) {
-        alert("ログインしていません！");
-        return;
-      }
+  const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+  console.log("ログインユーザー:", user);
+  console.log("エラー:", userError);
+
+  if (userError || !user) {
+    alert("ログインしていません！");
+    return;
+  }
+  // あとは同じ処理
+}
+
 
       const username = document.getElementById("username").value;
       if (!username) {
