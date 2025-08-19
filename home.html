@@ -1,88 +1,95 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <title>VTube - 登録</title>
-  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <meta charset="UTF-8" />
+  <title>VTube - プロフィール登録</title>
   <style>
     body {
       font-family: "Comic Sans MS", "Noto Sans JP", sans-serif;
       background: linear-gradient(135deg, #ffe6f0, #e6f7ff);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
       margin: 0;
+      padding: 0;
     }
-    .box {
-      background: #fff;
-      padding: 30px;
-      border-radius: 20px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      width: 320px;
+    header {
+      background: #ff99cc;
+      color: white;
       text-align: center;
+      padding: 15px;
+      font-size: 22px;
+      font-weight: bold;
     }
-    h2 {
-      margin-bottom: 20px;
-      color: #66ccff;
+    .container {
+      max-width: 500px;
+      margin: 40px auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
     input {
       width: 100%;
       padding: 10px;
-      margin: 8px 0;
+      margin: 10px 0;
+      border-radius: 10px;
       border: 1px solid #ccc;
-      border-radius: 12px;
+      font-size: 16px;
     }
     button {
-      width: 100%;
-      padding: 10px;
-      border: none;
-      border-radius: 20px;
       background: linear-gradient(90deg, #ff99cc, #66ccff);
       color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 20px;
       font-size: 16px;
       cursor: pointer;
-      margin-top: 10px;
+      transition: 0.3s;
+    }
+    button:hover {
+      transform: scale(1.05);
     }
   </style>
 </head>
 <body>
-  <div class="box">
-    <h2>プロフィール登録</h2>
-    <input type="text" id="username" placeholder="ユーザー名">
-    <button onclick="saveProfile()">保存してタイムラインへ</button>
+  <header>プロフィール登録</header>
+  <div class="container">
+    <h2>ユーザー名を登録</h2>
+    <input type="text" id="username" placeholder="ユーザー名を入力してください">
+    <button onclick="saveProfile()">登録</button>
   </div>
 
+  <script src="https://unpkg.com/@supabase/supabase-js"></script>
   <script>
-    const supabaseUrl = "https://yvxynwjfngvqwjjsqdma.supabase.co"; // ←差し替え
-    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU"; // ←差し替え
-    const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+    const SUPABASE_URL = "https://YOUR-PROJECT.supabase.co";
+    const SUPABASE_KEY = "YOUR-ANON-KEY";
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     async function saveProfile() {
-      const username = document.getElementById("username").value.trim();
+      const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+      if (userError || !user) {
+        alert("ログインしていません！");
+        return;
+      }
+
+      const username = document.getElementById("username").value;
       if (!username) {
-        alert("ユーザー名を入力してください");
+        alert("ユーザー名を入力してください！");
         return;
       }
 
-      const { data: userData, error: userError } = await supabaseClient.auth.getUser();
-      if (userError || !userData.user) {
-        alert("ログイン情報がありません");
-        return;
-      }
-
-      const userId = userData.user.id;
-
-      // 🔹 プロフィールを upsert（更新 or 挿入）
-      const { error } = await supabaseClient.from("profiles").upsert({
-        id: userId,
-        username: username,
-      });
+      // profiles に upsert (存在すれば更新、なければ作成)
+      const { error } = await supabaseClient
+        .from("profiles")
+        .upsert({
+          user_id: user.id,
+          username: username
+        });
 
       if (error) {
-        alert("保存エラー: " + error.message);
+        console.error("保存エラー:", error);
+        alert("プロフィール保存に失敗しました");
       } else {
-        location.href = "twitter.html"; // タイムラインへ移動
+        alert("プロフィールを保存しました！");
+        window.location.href = "twitter.html"; // 保存後にタイムラインへ
       }
     }
   </script>
