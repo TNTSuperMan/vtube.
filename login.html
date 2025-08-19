@@ -51,32 +51,42 @@
     <h2>ログイン</h2>
     <input type="email" id="email" placeholder="メールアドレス">
     <input type="password" id="password" placeholder="パスワード">
-    <button onclick="login()">ログイン / サインアップ</button>
+    <button onclick="login()">ログイン</button>
+    <button onclick="signup()">新規登録</button>
   </div>
 
   <script>
-    const supabaseUrl = "https://yvxynwjfngvqwjjsqdma.supabase.co"; // ←差し替え
-    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU"; // ←差し替え
+    const supabaseUrl = "https://yvxynwjfngvqwjjsqdma.supabase.co"; 
+    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU"; 
     const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
     async function login() {
       const email = document.getElementById("email").value;
       const password = document.getElementById("password").value;
 
-      const { data, error } = await supabaseClient.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
 
       if (error) {
-        // 初回ならサインアップ
-        const { error: signUpError } = await supabaseClient.auth.signUp({ email, password });
-        if (signUpError) {
-          alert("エラー: " + signUpError.message);
-          return;
-        }
+        alert("ログイン失敗: " + error.message);
+        return;
       }
+
+      alert("ログイン成功！");
       location.href = "home.html";
+    }
+
+    async function signup() {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+
+      const { data, error } = await supabaseClient.auth.signUp({ email, password });
+
+      if (error) {
+        alert("サインアップ失敗: " + error.message);
+        return;
+      }
+
+      alert("登録成功！メールを確認してください");
     }
   </script>
 </body>
