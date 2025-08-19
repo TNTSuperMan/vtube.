@@ -7,27 +7,46 @@
   <style>
     body {
       font-family: "Comic Sans MS", "Noto Sans JP", sans-serif;
-      background: linear-gradient(135deg, #e6f7ff, #ffe6f0);
-      display: flex; justify-content: center; align-items: center;
-      height: 100vh; margin: 0;
+      background: linear-gradient(135deg, #ffe6f0, #e6f7ff);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
     }
     .box {
-      background: #fff; padding: 30px;
+      background: #fff;
+      padding: 30px;
       border-radius: 20px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      width: 320px; text-align: center;
+      width: 320px;
+      text-align: center;
     }
-    h2 { color: #ff66aa; margin-bottom: 20px; }
-    input, textarea {
-      width: 100%; padding: 10px; margin: 8px 0;
-      border: 1px solid #ccc; border-radius: 12px;
+    h2 {
+      margin-bottom: 20px;
+      color: #ff66aa;
+    }
+    input, textarea, button {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
+      border-radius: 12px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+    }
+    textarea {
+      resize: none;
+      height: 80px;
     }
     button {
-      width: 100%; padding: 10px;
-      border: none; border-radius: 20px;
-      background: linear-gradient(90deg, #ff99cc, #66ccff);
-      color: white; font-size: 16px; cursor: pointer;
-      margin-top: 10px;
+      background: #ff99cc;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    button:hover {
+      background: #ff66aa;
     }
   </style>
 </head>
@@ -35,27 +54,44 @@
   <div class="box">
     <h2>プロフィール編集</h2>
     <input type="text" id="username" placeholder="ユーザー名">
-    <textarea id="bio" placeholder="自己紹介"></textarea>
+    <textarea id="bio" placeholder="自己紹介を入力してね"></textarea>
     <button onclick="saveProfile()">保存</button>
   </div>
 
   <script>
-    const supabaseUrl = "https://yvxynwjfngvqwjjsqdma.supabase.co";
-    const supabaseKey = "YOUR_SUPABASE_KEY";
-    const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey, {
-      auth: { persistSession: true, autoRefreshToken: true }
-    });
+    const supabaseUrl = "https://yvxynwjfngvqwjjsqdma.supabase.co"; // ←差し替え
+    const supabaseKey = "YOUR_SUPABASE_KEY"; // ←差し替え
+    const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
-    async function loadProfile() {
+    async function saveProfile() {
       const { data: { user } } = await supabaseClient.auth.getUser();
       if (!user) {
-        alert("ログインしてください！");
-        location.href = "login.html";
+        alert("ログインしてください");
         return;
       }
-      const { data, error } = await supabaseClient
+
+      const username = document.getElementById("username").value;
+      const bio = document.getElementById("bio").value;
+
+      const { error } = await supabaseClient
         .from("profiles")
-        .select("*")
+        .upsert({ user_id: user.id, username, bio });
+
+      if (error) {
+        alert("保存エラー: " + error.message);
+      } else {
+        alert("プロフィール更新しました！");
+      }
+    }
+
+    // 初期表示でプロフィール読み込み
+    (async () => {
+      const { data: { user } } = await supabaseClient.auth.getUser();
+      if (!user) return;
+
+      const { data } = await supabaseClient
+        .from("profiles")
+        .select("username, bio")
         .eq("user_id", user.id)
         .single();
 
@@ -63,32 +99,7 @@
         document.getElementById("username").value = data.username || "";
         document.getElementById("bio").value = data.bio || "";
       }
-    }
-
-    async function saveProfile() {
-      const { data: { user } } = await supabaseClient.auth.getUser();
-      if (!user) {
-        alert("ログインしてください！");
-        return;
-      }
-
-      const username = document.getElementById("username").value;
-      const bio = document.getElementById("bio").value;
-
-      const { error } = await supabaseClient.from("profiles").upsert({
-        user_id: user.id,
-        username,
-        bio
-      });
-
-      if (error) {
-        alert("保存エラー: " + error.message);
-      } else {
-        alert("プロフィールを保存しました！");
-      }
-    }
-
-    loadProfile();
+    })();
   </script>
 </body>
 </html>
