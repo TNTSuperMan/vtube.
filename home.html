@@ -8,79 +8,44 @@
     body {
       font-family: "Comic Sans MS", "Noto Sans JP", sans-serif;
       background: linear-gradient(135deg, #ffe6f0, #e6f7ff);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
       margin: 0;
+      padding: 20px;
     }
-    .box {
-      background: #fff;
-      padding: 30px;
-      border-radius: 20px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      width: 350px;
-      text-align: center;
+    header {
+      background: #ff99cc; color: white; text-align: center;
+      padding: 15px; font-size: 22px; font-weight: bold;
+      border-radius: 12px;
+      margin-bottom: 20px;
     }
-    h2 {
-      margin-bottom: 15px;
-      color: #ff66aa;
-    }
-    button {
-      width: 100%;
-      padding: 10px;
-      border: none;
-      border-radius: 20px;
+    a {
+      display: inline-block;
+      margin: 10px; padding: 10px 20px;
+      border-radius: 16px;
+      text-decoration: none; color: white;
       background: linear-gradient(90deg, #ff99cc, #66ccff);
-      color: white;
-      font-size: 16px;
-      cursor: pointer;
-      margin-top: 10px;
-    }
-    #welcome {
-      margin-bottom: 15px;
-      font-size: 16px;
-      color: #555;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     }
   </style>
 </head>
 <body>
-  <div class="box">
-    <h2>ホーム</h2>
-    <div id="welcome"></div>
-    <button onclick="gotoProfile()">プロフィール設定へ</button>
-    <button onclick="logout()">ログアウト</button>
+  <header>VTube ホーム</header>
+  <div style="text-align:center;">
+    <a href="profile.html">プロフィール</a>
+    <a href="twitter.html">タイムライン</a>
+    <a href="#" onclick="logout()">ログアウト</a>
   </div>
 
   <script>
     const supabaseUrl = "https://yvxynwjfngvqwjjsqdma.supabase.co";
-    const supabaseKey = "YOUR_ANON_KEY"; 
-    const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
-
-    let currentUser = null;
-
-    // ログイン確認
-    async function checkAuth() {
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      if (!session) {
-        location.href = "login.html";
-        return;
-      }
-      currentUser = session.user;
-      document.getElementById("welcome").innerText =
-        "ようこそ、" + currentUser.email + " さん！";
-    }
-
-    function gotoProfile() {
-      location.href = "profile.html";
-    }
+    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU";
+    const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey, {
+      auth: { persistSession: true, autoRefreshToken: true }
+    });
 
     async function logout() {
       await supabaseClient.auth.signOut();
       location.href = "login.html";
     }
-
-    checkAuth();
   </script>
 </body>
 </html>
