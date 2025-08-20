@@ -2,84 +2,138 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>VTube - プロフィール編集</title>
+  <title>◇VTube - プロフィール設定</title>
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <style>
     body {
       font-family: "Comic Sans MS", "Noto Sans JP", sans-serif;
-      background: linear-gradient(135deg, #e6f7ff, #ffe6f0);
-      display: flex; justify-content: center; align-items: center;
-      height: 100vh; margin: 0;
+      background: linear-gradient(135deg, #ffe6f0, #e6f7ff);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
     }
     .box {
-      background: #fff; padding: 30px;
+      background: #fff;
+      padding: 25px;
       border-radius: 20px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      width: 320px; text-align: center;
+      width: 350px;
+      text-align: center;
     }
-    h2 { color: #ff66aa; margin-bottom: 20px; }
+    h2 {
+      margin-bottom: 15px;
+      color: #ff66aa;
+    }
     input, textarea {
-      width: 100%; padding: 10px; margin: 8px 0;
-      border: 1px solid #ccc; border-radius: 12px;
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
+      border: 1px solid #ccc;
+      border-radius: 12px;
     }
     button {
-      width: 100%; padding: 10px;
-      border: none; border-radius: 20px;
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 20px;
       background: linear-gradient(90deg, #ff99cc, #66ccff);
-      color: white; font-size: 16px; cursor: pointer;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
       margin-top: 10px;
+    }
+    #avatarPreview {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      object-fit: cover;
+      margin: 10px auto;
+      display: block;
+      border: 2px solid #ff99cc;
     }
   </style>
 </head>
 <body>
   <div class="box">
-    <h2>プロフィール編集</h2>
+    <h2>プロフィール設定</h2>
+    <img id="avatarPreview" src="https://placehold.co/100x100?text=Avatar" alt="アイコン">
+    <input type="file" id="avatarInput" accept="image/*">
     <input type="text" id="username" placeholder="ユーザー名">
-    <textarea id="bio" placeholder="自己紹介"></textarea>
+    <textarea id="bio" placeholder="自己紹介" rows="3"></textarea>
     <button onclick="saveProfile()">保存</button>
   </div>
 
   <script>
-    const supabaseUrl = "https://yvxynwjfngvqwjjsqdma.supabase.co";
-    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU";
-    const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey, {
-      auth: { persistSession: true, autoRefreshToken: true }
-    });
+    const supabaseUrl = "https://yvxynwjfngvqwjjsqdma.supabase.co"; // ←自分のURL
+    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eHlud2pmbmd2cXdqanNxZG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTExMjQsImV4cCI6MjA3MTA4NzEyNH0.RLAfsXbVLT1fTu48_EvMYYD4pxFRQk4Ks3zx8DXruBU"; // ←自分のAnonキー
+    const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
-    async function loadProfile() {
-      const { data: { user } } = await supabaseClient.auth.getUser();
-      if (!user) {
-        alert("ログインしてください！");
+    let currentUser = null;
+
+    // ページ読み込み時にセッション確認
+    window.onload = async () => {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session) {
         location.href = "login.html";
         return;
       }
+      currentUser = session.user;
+
+      // プロフィール情報を取得
       const { data, error } = await supabaseClient
         .from("profiles")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("user_id", currentUser.id)
         .single();
 
       if (data) {
         document.getElementById("username").value = data.username || "";
         document.getElementById("bio").value = data.bio || "";
+        if (data.avatar_url) {
+          document.getElementById("avatarPreview").src = data.avatar_url;
+        }
       }
-    }
+    };
 
+    // プロフィール保存
     async function saveProfile() {
-      const { data: { user } } = await supabaseClient.auth.getUser();
-      if (!user) {
-        alert("ログインしてください！");
-        return;
+      if (!currentUser) return alert("ログインしてください");
+
+      let avatarUrl = null;
+
+      // アイコンアップロードがある場合
+      const file = document.getElementById("avatarInput").files[0];
+      if (file) {
+        const fileName = `${currentUser.id}_${Date.now()}`;
+        const { error: uploadError } = await supabaseClient.storage
+          .from("avatars")
+          .upload(fileName, file, { upsert: true });
+
+        if (uploadError) {
+          alert("アイコンアップロード失敗: " + uploadError.message);
+          return;
+        }
+
+        const { data: { publicUrl } } = supabaseClient.storage
+          .from("avatars")
+          .getPublicUrl(fileName);
+
+        avatarUrl = publicUrl;
       }
 
-      const username = document.getElementById("username").value;
-      const bio = document.getElementById("bio").value;
+      const updates = {
+        user_id: currentUser.id,
+        username: document.getElementById("username").value,
+        bio: document.getElementById("bio").value,
+        avatar_url: avatarUrl || document.getElementById("avatarPreview").src,
+        updated_at: new Date(),
+      };
 
-      const { error } = await supabaseClient.from("profiles").upsert({
-        user_id: user.id,
-        username,
-        bio
-      });
+      const { error } = await supabaseClient
+        .from("profiles")
+        .upsert(updates, { onConflict: "user_id" });
 
       if (error) {
         alert("保存エラー: " + error.message);
@@ -87,8 +141,6 @@
         alert("プロフィールを保存しました！");
       }
     }
-
-    loadProfile();
   </script>
 </body>
 </html>
